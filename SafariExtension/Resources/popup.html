@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>⚙︎ DevTools</title>
+        <link rel="stylesheet" href="popup.css" />
+        <script src="popup.js" defer></script>
+    </head>
+    <body>
+        <header>
+            <img src="icons/icon-96.png" alt="" width="44" height="44" />
+            <div>
+                <h1>⚙︎ DevTools</h1>
+                <span id="version">Safari console</span>
+            </div>
+            <span id="plan" class="pill">Free</span>
+        </header>
+        <main>
+            <label class="switch"
+                ><span>Enable DevTools</span><input id="enabled" type="checkbox" role="switch"
+            /></label>
+            <p id="status" role="status">Checking this page…</p>
+            <div class="buttons">
+                <button id="show">Show</button><button id="hide" class="secondary">Hide</button>
+            </div>
+            <section>
+                <h2>Add this page</h2>
+                <label>Destination list<select id="lists"></select></label
+                ><label
+                    >Match<select id="kind">
+                        <option value="domain">Domain & subdomains</option>
+                        <option value="url">Exact URL</option>
+                        <option value="wildcard">Wildcard</option>
+                        <option value="regex">Regular expression</option>
+                    </select></label
+                ><input id="pattern" aria-label="Pattern" spellcheck="false" autocapitalize="off" /><button
+                    id="add"
+                >
+                    Add rule
+                </button>
+            </section>
+            <p class="note">
+                Blacklists take priority. Manage lists, plugins, appearance and purchases in the DevTools app.
+            </p>
+            <p id="error" role="alert"></p>
+        </main>
+    </body>
+</html>

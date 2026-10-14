@@ -1,0 +1,63 @@
+{
+  "identifier": "D6200641-1B21-487B-A47C-527A2ABD8D01",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "19.99",
+      "familyShareable": false,
+      "internalID": "DT-LIFETIME",
+      "localizations": [
+        {
+          "description": "Vue tools, resource waterfall, console customization and no ads.",
+          "displayName": "DevTools Pro Lifetime",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.tyh24647.DevTools.pro.lifetime",
+      "referenceName": "Pro Lifetime",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_applicationInternalID": "",
+    "_developerTeamID": "",
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [
+    {
+      "id": "DT-PRO-GROUP",
+      "localizations": [],
+      "name": "DevTools Pro",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "2.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "DT-MONTHLY",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Vue tools, resource waterfall, console customization and no ads.",
+              "displayName": "DevTools Pro Monthly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.tyh24647.DevTools.pro.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Pro Monthly",
+          "subscriptionGroupID": "DT-PRO-GROUP",
+          "type": "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

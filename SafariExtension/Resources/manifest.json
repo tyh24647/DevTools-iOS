@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "⚙︎ DevTools",
+  "description": "Eruda and Vue debugging tools with selectable AllowLists and blacklists.",
+  "version": "1.0.0",
+  "permissions": ["nativeMessaging", "scripting", "storage", "tabs", "webNavigation"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "scripts": ["rule-engine.js", "background.js"], "persistent": false },
+  "content_scripts": [{ "matches": ["http://*/*", "https://*/*"], "js": ["content.js"], "run_at": "document_start", "all_frames": false }],
+  "action": { "default_popup": "popup.html", "default_title": "⚙︎ DevTools", "default_icon": "icons/icon-128.png" },
+  "icons": { "48": "icons/icon-48.png", "96": "icons/icon-96.png", "128": "icons/icon-128.png" },
+  "content_security_policy": { "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'" }
+}

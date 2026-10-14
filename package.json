@@ -1,0 +1,32 @@
+{
+    "name": "devtools-ios-extension-assets",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "vendor": "node Scripts/vendor.mjs",
+        "test": "node --test Tests/*.test.mjs",
+        "check": "node Scripts/check.mjs",
+        "update:tools": "npm install --save-exact --ignore-scripts eruda@latest eruda-vue@latest eruda-vue-devtools@latest vconsole@latest vue-vconsole-devtools@latest eruda-code@latest eruda-dom@latest eruda-timing@latest eruda-fps@latest eruda-features@latest && npm run vendor",
+        "test:browser": "node Tests/browser-smoke.mjs",
+        "project": "python3 Scripts/patch-media-project.py",
+        "test:native-browser": "node Tests/native-browser-smoke.mjs"
+    },
+    "dependencies": {
+        "eruda": "3.4.3",
+        "eruda-code": "2.2.0",
+        "eruda-dom": "2.0.0",
+        "eruda-features": "2.1.0",
+        "eruda-fps": "2.0.0",
+        "eruda-timing": "2.0.1",
+        "eruda-vue": "1.1.1",
+        "eruda-vue-devtools": "1.0.1",
+        "vconsole": "3.15.1",
+        "vue-vconsole-devtools": "1.0.9"
+    },
+    "devDependencies": {
+        "@playwright/test": "1.63.0",
+        "prettier": "3.9.9",
+        "xcode": "3.0.1"
+    }
+}
