@@ -217,6 +217,12 @@
                 globalThis.__DTSourceFormatting?.(state.eruda);
                 state.uiCleanup = globalThis.__DTConsoleUI?.(state.eruda, options);
             }
+            if (state.eruda) {
+                state.eruda.get().config.set("displaySize", Math.min(75, Math.max(25, Number(state.eruda.get().config.get("displaySize")) || 55)));
+                state.eruda.show("console");
+                state.eruda.hide();
+                state.hidden = true;
+            }
             state.signature = signature;
         }
         if (command === "hide") {
@@ -228,7 +234,7 @@
         } else if (command === "show") {
             state.hidden = false;
             state.eruda?.get("entryBtn")?.show();
-            state.eruda?.show();
+            state.eruda?.show("console");
             state.vconsole?.showSwitch();
             state.vconsole?.show();
         }

@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import UIKit
 import Photos
+import AVFoundation
 import UniformTypeIdentifiers
 
 @MainActor
@@ -19,6 +20,7 @@ final class MediaLibrary: ObservableObject {
     @Published var revision = 0
     let root: URL
     let captures: URL
+    var onPreviewRestore: (() -> Void)?
     var onStatus: ((MediaTransfer) -> Void)?
     var onBlobStart: ((MediaTransfer) -> Void)?
     var onBlobStop: ((MediaTransfer) -> Void)?
@@ -26,6 +28,7 @@ final class MediaLibrary: ObservableObject {
     private var backgroundObserver: NSObjectProtocol?
     private var activeObserver: NSObjectProtocol?
     private var recovering = Set<URL>()
+    private var activeRecoveries = Set<URL>()
 
     init() {
         settings = UserDefaults.standard.data(forKey: "media-settings-v2").flatMap {
@@ -86,23 +89,89 @@ final class MediaLibrary: ObservableObject {
         revision += 1
     }
 
-    func delete(_ file: URL) throws {
-        guard file.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/"),
-              !transfers.contains(where: { !$0.finished && ((try? directory($0.settings.defaultFolder).path)?.hasPrefix(file.path + "/") == true || (try? directory($0.settings.defaultFolder)) == file) }) else {
-            throw MediaFailure.invalid("An active transfer uses this folder.")
+    private func checkedLibraryItem(_ file: URL) throws -> URL {
+        let resolved = file.standardizedFileURL.resolvingSymlinksInPath()
+        let library = root.standardizedFileURL.resolvingSymlinksInPath()
+        guard resolved.path.hasPrefix(library.path + "/") else {
+            throw MediaFailure.invalid("Choose a file inside Downloads.")
         }
+        guard !transfers.contains(where: { transfer in
+            guard !transfer.finished else { return false }
+            let destination = try? directory(transfer.settings.defaultFolder).resolvingSymlinksInPath()
+            return destination == resolved || destination?.path.hasPrefix(resolved.path + "/") == true ||
+                transfer.outputs.contains { $0 == file || $0.path.hasPrefix(file.path + "/") }
+        }) else {
+            throw MediaFailure.invalid("An active transfer uses this file or folder. Stop and finalize it first.")
+        }
+        return resolved
+    }
+
+    func delete(_ file: URL) throws {
+        _ = try checkedLibraryItem(file)
         try FileManager.default.removeItem(at: file)
         revision += 1
     }
 
-    func choices(_ source: PageMedia, cookies: [HTTPCookie]) async throws -> [MediaChoice] {
+    func relocate(_ file: URL, to relative: String, name: String? = nil) throws {
+        let source = try checkedLibraryItem(file)
+        let filename = name ?? file.lastPathComponent
+        try MediaExporter.validateName(filename)
+        let folder = try directory(relative).resolvingSymlinksInPath()
+        let library = root.resolvingSymlinksInPath()
+        guard (folder == library || folder.path.hasPrefix(library.path + "/")),
+              (try? folder.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true,
+              folder != source, !folder.path.hasPrefix(source.path + "/") else {
+            throw MediaFailure.invalid("Choose a destination folder inside Downloads, outside this item.")
+        }
+        let target = folder.appendingPathComponent(filename)
+        if target == source { return }
+        guard !FileManager.default.fileExists(atPath: target.path) else {
+            throw MediaFailure.invalid("An item with that name already exists in this folder.")
+        }
+        try FileManager.default.moveItem(at: file, to: target)
+        if let selectedFolder = try? directory(settings.defaultFolder),
+           selectedFolder == file || selectedFolder.path.hasPrefix(file.path + "/") {
+            let suffix = String(selectedFolder.path.dropFirst(file.path.count))
+            settings.defaultFolder = String((target.path + suffix).dropFirst(root.path.count + 1))
+        }
+        // Completed transfer links follow both individual files and renamed folders.
+        for transfer in transfers {
+            transfer.outputs = transfer.outputs.map { output in
+                if output == file { return target }
+                if output.path.hasPrefix(file.path + "/") {
+                    return target.appendingPathComponent(String(output.path.dropFirst(file.path.count + 1)))
+                }
+                return output
+            }
+        }
+        revision += 1
+    }
+
+    func destinationFolders(excluding file: URL) -> [String] {
+        var folders = [""]
+        guard let enumerator = FileManager.default.enumerator(at: root,
+            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey], options: [.skipsHiddenFiles]) else { return folders }
+        for case let folder as URL in enumerator {
+            let values = try? folder.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            if values?.isSymbolicLink == true || folder == file || folder.path.hasPrefix(file.path + "/") {
+                enumerator.skipDescendants()
+                continue
+            }
+            if values?.isDirectory == true {
+                folders.append(String(folder.path.dropFirst(root.path.count + 1)))
+            }
+        }
+        return folders.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+
+    func choices(_ source: PageMedia, cookies: [HTTPCookie], userAgent: String? = nil) async throws -> [MediaChoice] {
         guard !source.isBlob, let url = URL(string: source.url), let page = URL(string: source.page) else {
             return []
         }
         if !source.hls && url.pathExtension.lowercased() != "m3u8" {
             return [MediaChoice(video: url, audio: nil, live: false, label: "Original")]
         }
-        let http = MediaHTTP(page: page, cookies: cookies)
+        let http = MediaHTTP(page: page, cookies: cookies, userAgent: userAgent)
         defer { http.close() }
         let list = try await http.playlist(url)
         if list.variants.isEmpty {
@@ -116,7 +185,7 @@ final class MediaLibrary: ObservableObject {
         return results
     }
 
-    func start(_ source: PageMedia, choice: MediaChoice?, cookies: [HTTPCookie]) {
+    func start(_ source: PageMedia, choice: MediaChoice?, cookies: [HTTPCookie], userAgent: String? = nil) {
         var inserted: MediaTransfer?
         do {
             guard transfers.filter({ !$0.finished }).count < 2 else {
@@ -134,7 +203,8 @@ final class MediaLibrary: ObservableObject {
                 let folder = captures.appendingPathComponent(transfer.id.uuidString + "-mse")
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 transfer.blobFolder = folder
-                transfer.state = "Recording media buffers"
+                transfer.state = "Recording page media"
+                onStatus?(transfer)
                 onBlobStart?(transfer)
                 return
             }
@@ -142,7 +212,7 @@ final class MediaLibrary: ObservableObject {
                 throw MediaFailure.invalid("No supported media source was selected.")
             }
             transfer.live = choice.live
-            let http = MediaHTTP(page: page, cookies: cookies, limit: choice.live || source.hls ? 256 * 1024 * 1024 : Int64(settings.partLimitMB) * 1024 * 1024) { [weak self, weak transfer] bytes, total in
+            let http = MediaHTTP(page: page, cookies: cookies, userAgent: userAgent, limit: choice.live || source.hls ? 256 * 1024 * 1024 : Int64(settings.partLimitMB) * 1024 * 1024) { [weak self, weak transfer] bytes, total in
                 Task { @MainActor in
                     guard let transfer, !transfer.live, !source.hls else {
                         return
@@ -174,6 +244,8 @@ final class MediaLibrary: ObservableObject {
                                     self?.enqueueExport(folder, checkpoint: checkpoint, transfer: transfer)
                                 }
                             }
+                        }, thumbnail: { [weak transfer] data in
+                            await MainActor.run { transfer?.thumbnail = data }
                         })
                     } catch {
                         transfer.error = error.localizedDescription
@@ -188,8 +260,11 @@ final class MediaLibrary: ObservableObject {
                     do {
                         let ext = self.extensionFor(source: source)
                         let target = try self.uniqueOutput(title: source.title, extension: ext, relative: transfer.settings.defaultFolder)
-                        let temporary = captures.appendingPathComponent(UUID().uuidString + ".pending")
+                        let temporary = captures.appendingPathComponent(UUID().uuidString + "." + ext)
+                        defer { try? FileManager.default.removeItem(at: temporary) }
                         let response = try await http.download(choice.video, to: temporary)
+                        transfer.thumbnail = await MediaThumbnailCache.shared.thumbnail(for: temporary)
+                        transfer.bytes = Int64((try? temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
                         if source.mime.hasPrefix("video/") || response.mimeType?.hasPrefix("video/") == true || ["mp4", "mov", "m4v"].contains(ext) {
                             let output = try self.uniqueOutput(title: source.title, extension: transfer.settings.container.rawValue, relative: transfer.settings.defaultFolder)
                             transfer.state = "Converting video"
@@ -232,6 +307,7 @@ final class MediaLibrary: ObservableObject {
             return
         }
         transfer.state = "Finishing captured media"
+        onStatus?(transfer)
         if let recorder = transfer.recorder {
             Task {
                 await recorder.stop(reason)
@@ -337,16 +413,24 @@ final class MediaLibrary: ObservableObject {
         completeIfReady(transfer)
     }
 
-    private func enqueueExport(_ folder: URL, checkpoint: RecordingCheckpoint, transfer: MediaTransfer) {
+    private func enqueueExport(_ folder: URL, checkpoint: RecordingCheckpoint, transfer: MediaTransfer, recoveryJournal: URL? = nil) {
         let previous = transfer.exportTail
         transfer.pendingExports += 1
         transfer.exportTail = Task {
+            // Successful export removes its capture folder and journal. Keep the
+            // journal on any failure, including native failures that surface later,
+            // so automatic startup recovery never repeats an unsuccessful attempt.
+            defer {
+                if recoveryJournal != nil { self.activeRecoveries.remove(folder) }
+            }
             await previous?.value
             transfer.state = transfer.captureEnded ? "Finalizing movie" : "Recording; converting completed part"
+            onStatus?(transfer)
             do {
                 let name = try self.uniqueOutput(title: checkpoint.title, extension: checkpoint.settings.container.rawValue, relative: checkpoint.folder)
                 try await MediaExporter.export(folder: folder, checkpoint: checkpoint, destination: name)
                 transfer.outputs.append(name)
+                if let data = transfer.thumbnail { await MediaThumbnailCache.shared.seed(data, for: name) }
                 self.revision += 1
             } catch {
                 transfer.error = error.localizedDescription
@@ -362,14 +446,38 @@ final class MediaLibrary: ObservableObject {
             return
         }
         transfer.finished = true
-        transfer.state = transfer.error == nil ? "Saved" : (transfer.outputs.isEmpty ? "Capture retained — recovery available" : "Saved partial recording")
+        Task {
+            for output in transfer.outputs {
+                if let data = transfer.thumbnail {
+                    await MediaThumbnailCache.shared.seed(data, for: output)
+                } else {
+                    transfer.thumbnail = await MediaThumbnailCache.shared.thumbnail(for: output)
+                }
+            }
+        }
+        let folders = (try? FileManager.default.contentsOfDirectory(at: captures, includingPropertiesForKeys: nil)) ?? []
+        let retained = folders.contains { folder in
+            guard folder.lastPathComponent.hasPrefix(transfer.id.uuidString),
+                  let data = try? Data(contentsOf: folder.appendingPathComponent("checkpoint.json")),
+                  let checkpoint = try? JSONDecoder().decode(RecordingCheckpoint.self, from: data) else { return false }
+            return checkpoint.id == transfer.id && !checkpoint.finalized
+        }
+        transfer.state = transfer.error == nil ? "Saved" : (transfer.outputs.isEmpty ? (retained ? "Capture retained — recovery available" : "Download failed — no media saved") : "Saved partial recording")
         transfer.progress = transfer.error == nil ? 1 : nil
         onStatus?(transfer)
         endBackgroundIfIdle()
     }
 
     func retryRecovery() {
-        recovering.removeAll()
+        let folders = (try? FileManager.default.contentsOfDirectory(at: captures, includingPropertiesForKeys: nil)) ?? []
+        for folder in folders where !activeRecoveries.contains(folder) {
+            let journal = folder.appendingPathComponent(".recovery-in-progress")
+            if FileManager.default.fileExists(atPath: journal.path) {
+                do { try FileManager.default.removeItem(at: journal) }
+                catch { notice = "Could not restart recovery. Captured files are retained."; continue }
+            }
+            recovering.remove(folder)
+        }
         recoverInterrupted()
     }
 
@@ -391,7 +499,22 @@ final class MediaLibrary: ObservableObject {
             transfer.captureEnded = true
             transfer.state = "Recovering interrupted capture"
             transfers.insert(transfer, at: 0)
-            enqueueExport(folder, checkpoint: checkpoint, transfer: transfer)
+            let journal = folder.appendingPathComponent(".recovery-in-progress")
+            if FileManager.default.fileExists(atPath: journal.path) {
+                transfer.error = "A previous recovery did not complete. Captured files are retained; use Retry retained recordings to try again."
+                transfer.state = "Capture retained — manual recovery available"
+                transfer.finished = true
+                continue
+            }
+            do {
+                try Data().write(to: journal, options: .atomic)
+                activeRecoveries.insert(folder)
+                enqueueExport(folder, checkpoint: checkpoint, transfer: transfer, recoveryJournal: journal)
+            } catch {
+                transfer.error = "Could not prepare recovery. Captured files are retained."
+                transfer.state = "Capture retained — recovery unavailable"
+                transfer.finished = true
+            }
         }
     }
 
@@ -466,15 +589,42 @@ final class MediaLibrary: ObservableObject {
             notice = "Allow Photos access to save this media. Files export is still available."
             return
         }
+        let isImage = ["jpg", "jpeg", "png", "gif", "webp", "heic", "avif"].contains(file.pathExtension.lowercased())
+        let compatible = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp4")
+        defer { try? FileManager.default.removeItem(at: compatible) }
         do {
-            try await PHPhotoLibrary.shared().performChanges {
-                let request = PHAssetCreationRequest.forAsset()
-                let images = ["jpg", "jpeg", "png", "gif", "webp", "heic", "avif"]
-                request.addResource(with: images.contains(file.pathExtension.lowercased()) ? .photo : .video, fileURL: file, options: nil)
+            let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size > 0 else { throw MediaFailure.invalid("The saved file is empty. Download it again before saving to Photos.") }
+            if !isImage {
+                let asset = AVURLAsset(url: file)
+                guard !(try await asset.loadTracks(withMediaType: .video)).isEmpty else {
+                    throw MediaFailure.invalid("This file does not contain a readable video track. Download it again; changing its extension will not repair it.")
+                }
+                guard !(try await asset.load(.hasProtectedContent)) else {
+                    throw MediaFailure.invalid("This video is protected and cannot be exported to Photos.")
+                }
+            }
+            func importFile(_ url: URL) async throws {
+                try await PHPhotoLibrary.shared().performChanges {
+                    let request = PHAssetCreationRequest.forAsset()
+                    request.addResource(with: isImage ? .photo : .video, fileURL: url, options: nil)
+                }
+            }
+            do {
+                try await importFile(file)
+            } catch {
+                let photosError = error as NSError
+                guard !isImage, photosError.domain == PHPhotosErrorDomain, photosError.code == 3302 else { throw error }
+                notice = "Preparing a Photos-compatible video…"
+                var settings = MediaSettings()
+                settings.container = .mp4
+                settings.codec = .h264
+                try await MediaExporter.convert(file, settings: settings, destination: compatible)
+                try await importFile(compatible)
             }
             notice = "Saved to Photos."
         } catch {
-            notice = error.localizedDescription
+            notice = "Could not save to Photos: \(error.localizedDescription) The original remains in Downloads; Share is still available."
         }
     }
 }

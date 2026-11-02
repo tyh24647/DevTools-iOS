@@ -32,6 +32,16 @@
     __USER_SCRIPTS__
     __RUNTIME__
     let config = __CONFIG__;
+    // Register before page scripts. Preserve browser defaults for inspection gestures.
+    addEventListener("contextmenu",event=>{
+        if(config.enabled)event.stopImmediatePropagation();
+    },{capture:true});
+    addEventListener("keydown",event=>{
+        if(!config.enabled)return;
+        const key=event.key.toLowerCase();
+        const inspect=key==="f12" || ((event.ctrlKey||event.metaKey) && (event.shiftKey||event.altKey) && ["i","j","c"].includes(key));
+        if(inspect)event.stopImmediatePropagation();
+    },{capture:true});
     let current = "";
     let generation = 0;
     let hasMedia = false;
@@ -91,7 +101,7 @@
             globalThis.__DTMedia?.setEnabled(decision.run);
             globalThis.__DTNativeStatus = {...decision, ...(await __DevToolsRuntime.apply(config,decision,command,url))};
             if (decision.run) {
-                __DTUserscripts.start(config.plugins || []);
+                __DTUserscripts.start((config.plugins || []).filter(plugin => plugin.kind === "userscript"));
                 if (!hasMedia) {
                     hasMedia = true;
                     __MEDIA__

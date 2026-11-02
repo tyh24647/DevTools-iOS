@@ -34,6 +34,21 @@ final class PluginLibrary: ObservableObject {
                   let css = try? String(contentsOf: url, encoding: .utf8) {
             rows = [UserPlugin(name: "Page CSS editor", kind: "eruda", source: css, enabled: true, tags: "CSS")]
         }
+        // Update only the unmodified bundled CSS editor; preserve user-edited plugins.
+        if let url = Bundle.main.url(forResource: "BrowserResources", withExtension: nil)?.appendingPathComponent("css-editor-plugin.js"),
+           let css = try? String(contentsOf: url, encoding: .utf8) {
+            let legacy = css.replacingOccurrences(of: "\n    root.style.cssText += \";height:100%;overflow:auto;color-scheme:light dark;background:Canvas;color:CanvasText;box-sizing:border-box\";\n    element.hide();", with: "")
+            var updated = rows
+            var changed = false
+            for index in updated.indices where updated[index].kind == "eruda" && updated[index].name == "Page CSS editor" && updated[index].source == legacy {
+                updated[index].source = css
+                changed = true
+            }
+            if changed {
+                do { try write(updated) }
+                catch { self.error = "The bundled CSS editor could not be updated: \(error.localizedDescription)" }
+            }
+        }
     }
 
     func save(_ row: UserPlugin) throws {

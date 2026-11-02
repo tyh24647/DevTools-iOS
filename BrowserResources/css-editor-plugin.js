@@ -3,6 +3,8 @@ return {
   init(element) {
     this.element = element;
     const root = element.get(0);
+    root.style.cssText += ";height:100%;overflow:auto;color-scheme:light dark;background:Canvas;color:CanvasText;box-sizing:border-box";
+    element.hide();
     const key = "devtools.css-editor.v1";
     let saved = { css: "", auto: false };
     try { saved = JSON.parse(localStorage.getItem(key)) || saved; } catch {}

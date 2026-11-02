@@ -2,14 +2,12 @@ import SwiftUI
 import Combine
 
 struct RootView: View {
-    @EnvironmentObject private var ads: AdManager
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var updater: PackageUpdater
     @StateObject private var media: MediaLibrary
     @StateObject private var plugins: PluginLibrary
     @StateObject private var browser: BrowserController
-    @State private var selection = 0
-    private let adClock = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    @State private var selection = 1
 
     init() {
         let media = MediaLibrary()
@@ -21,33 +19,19 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            NavigationStack { BrowserView() }
-                .tabItem { Label("Browser", systemImage: "safari") }.tag(0)
-            NavigationStack { DownloadsView() }
-                .tabItem { Label("Downloads", systemImage: "arrow.down.circle") }.tag(1)
-            NavigationStack { PluginsView() }
-                .tabItem { Label("Plugins", systemImage: "puzzlepiece.extension") }.tag(2)
-            NavigationStack { ToolsView() }
-                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }.tag(3)
-            NavigationStack {
-                List {
-                    NavigationLink("Overview") { DashboardView() }
-                    NavigationLink("Safari lists") { ListsView() }
-                    NavigationLink("Browser rules") { BrowserRulesView() }
-                    NavigationLink("Media settings") { MediaSettingsView() }
-                    NavigationLink("App settings") { SettingsView() }
-                }
-                .navigationTitle("Settings")
-            }
-            .tabItem { Label("Settings", systemImage: "gearshape") }.tag(4)
+            browserTab
+            downloadsTab
+            pluginsTab
+            toolsTab
+            settingsTab
         }
         .environmentObject(media)
         .environmentObject(plugins)
         .environmentObject(browser)
-        .safeAreaInset(edge: .bottom, spacing: 0) { AdFooter() }
-        .onReceive(adClock) { _ in ads.tick() }
-        .onChange(of: selection) { _, _ in ads.naturalBreak() }
-        .onAppear { browser.configure(model) }
+        .task {
+            media.onPreviewRestore = { selection = 1 }
+            browser.configure(model)
+        }
         .onChange(of: model.config.revision) { _, _ in browser.configure(model) }
         .onChange(of: updater.isChecking) { _, checking in
             if !checking { browser.refreshTools() }
@@ -64,8 +48,91 @@ struct RootView: View {
         }, set: { shown in
             if !shown { media.notice = nil; browser.notice = nil }
         })) {
-            Button("OK", role: .cancel) { media.notice = nil; browser.notice = nil }
+            Button(role: .cancel) {
+                media.notice = nil
+                browser.notice = nil
+            } label: {
+                Text("OK")
+            }
         } message: { Text(media.notice ?? browser.notice ?? "") }
+    }
+
+    private var browserTab: some View {
+        NavigationStack {
+            BrowserView()
+        }
+        .tabItem {
+            Label("Browser", systemImage: "safari")
+        }
+        .tag(0)
+    }
+
+    private var downloadsTab: some View {
+        NavigationStack {
+            DownloadsView()
+        }
+        .tabItem {
+            Label("Downloads", systemImage: "arrow.down.circle")
+        }
+        .tag(1)
+    }
+
+    private var pluginsTab: some View {
+        NavigationStack {
+            PluginsView()
+        }
+        .tabItem {
+            Label("Plugins", systemImage: "puzzlepiece.extension")
+        }
+        .tag(2)
+    }
+
+    private var toolsTab: some View {
+        NavigationStack {
+            ToolsView()
+        }
+        .tabItem {
+            Label("Tools", systemImage: "wrench.and.screwdriver")
+        }
+        .tag(3)
+    }
+
+    private var settingsTab: some View {
+        NavigationStack {
+            List {
+                NavigationLink {
+                    DashboardView()
+                } label: {
+                    Text("Overview")
+                }
+                NavigationLink {
+                    ListsView()
+                } label: {
+                    Text("Safari lists")
+                }
+                NavigationLink {
+                    // Replaced BrowserRulesView with placeholder Text
+                    Text("Rules")
+                } label: {
+                    Text("Browser rules")
+                }
+                NavigationLink {
+                    MediaSettingsView()
+                } label: {
+                    Text("Media settings")
+                }
+                NavigationLink {
+                    SettingsView()
+                } label: {
+                    Text("App settings")
+                }
+            }
+            .navigationTitle("Settings")
+        }
+        .tabItem {
+            Label("Settings", systemImage: "gearshape")
+        }
+        .tag(4)
     }
 }
 
@@ -151,7 +218,7 @@ struct DashboardView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(model.isPro ? "DevTools Pro is active" : "Make DevTools yours")
                                 .font(.headline)
-                            Text("Vue inspector, resource waterfall, themes and more. No ads.")
+                            Text("Vue inspector, resource waterfall, themes and more.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

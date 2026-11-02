@@ -6,13 +6,15 @@ import WebKit
 final class MediaHTTP: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
     private var session: URLSession!
     private let page: URL
+    private let userAgent: String
     private let cookieStorage: HTTPCookieStorage
     private let limit: Int64
     private let progress: @Sendable (Int64, Int64) -> Void
 
-    init(page: URL, cookies: [HTTPCookie], limit: Int64 = 256 * 1024 * 1024,
+    init(page: URL, cookies: [HTTPCookie], userAgent: String? = nil, limit: Int64 = 256 * 1024 * 1024,
          progress: @escaping @Sendable (Int64, Int64) -> Void = { _, _ in }) {
         self.page = page
+        self.userAgent = userAgent?.isEmpty == false ? userAgent! : "Mozilla/5.0 DevTools-iOS/2.0"
         self.limit = limit
         self.progress = progress
         let configuration = URLSessionConfiguration.ephemeral
@@ -41,7 +43,7 @@ final class MediaHTTP: NSObject, URLSessionDownloadDelegate, @unchecked Sendable
             throw MediaFailure.invalid("Unsupported media URL.")
         }
         var request = URLRequest(url: url)
-        request.setValue("Mozilla/5.0 DevTools-iOS/2.0", forHTTPHeaderField: "User-Agent")
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue(page.absoluteString, forHTTPHeaderField: "Referer")
         if let range {
             request.setValue("bytes=\(range.offset)-\(range.offset + range.length - 1)", forHTTPHeaderField: "Range")
@@ -52,7 +54,20 @@ final class MediaHTTP: NSObject, URLSessionDownloadDelegate, @unchecked Sendable
         }
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode),
               range == nil || http.statusCode == 206 else {
-            throw MediaFailure.invalid("The media server rejected the request or ignored its byte range.")
+            throw MediaFailure.invalid("The media server rejected the request (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)) or ignored its byte range.")
+        }
+        let handle = try FileHandle(forReadingFrom: temporary)
+        defer { try? handle.close() }
+        let prefix = try handle.read(upToCount: 1024) ?? Data()
+        let text = String(decoding: prefix, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let mime = http.mimeType?.lowercased() ?? ""
+        guard mime != "text/html", mime != "application/xhtml+xml",
+              !text.hasPrefix("<!doctype html"), !text.hasPrefix("<html") else {
+            let redirected = http.url != url
+            let pageURL = url.absoluteString.split(separator: "#").first == page.absoluteString.split(separator: "#").first
+            let challenge = http.value(forHTTPHeaderField: "cf-mitigated")?.lowercased() == "challenge" || text.contains("cf-chl-") || text.contains("challenges.cloudflare.com")
+            let details = "HTTP \(http.statusCode); type \(mime.isEmpty ? "unspecified" : mime); requested host \(url.host ?? "unknown"); response host \(http.url?.host ?? "unknown"); redirected \(redirected ? "yes" : "no"); source equals page \(pageURL ? "yes" : "no"); challenge markers \(challenge ? "yes" : "no")."
+            throw MediaFailure.invalid("The server returned a webpage instead of media. " + details + " Refresh the source page and select the media again.")
         }
         let size = try temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         guard size > 0, Int64(size) <= limit, range == nil || Int64(size) == range?.length else {

@@ -1,0 +1,44 @@
+# Xcode build products and intermediates
+Build/
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.xcarchive
+*.xcresult
+*.profdata
+*.trace
+Timeline.xctimeline
+
+# Xcode per-user and source-control metadata
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+
+# Swift Package Manager and dependency build output
+.build/
+.swiftpm/
+Carthage/Build/
+SourcePackages/
+
+# Generated Make and CMake files
+Makefile
+makefile
+GNUmakefile
+*.make
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Project-local generated files and dependencies
+node_modules/
+Configuration/Developer.xcconfig
+
+# macOS and local credentials
+.DS_Store
+github_ssh_key*

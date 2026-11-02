@@ -4,7 +4,6 @@ import StoreKit
 struct ProView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var purchases: PurchaseStore
-    @EnvironmentObject private var ads: AdManager
 
     var body: some View {
         List {
@@ -21,7 +20,6 @@ struct ProView: View {
                     Label("Vue component inspection", systemImage: "square.stack.3d.up")
                     Label("Resource timing & waterfall", systemImage: "chart.bar.xaxis")
                     Label("Extra plugins & console customization", systemImage: "slider.horizontal.3")
-                    Label("An ad-free app", systemImage: "checkmark.seal")
                 }
                 .padding(.vertical, 10)
             }
@@ -88,11 +86,5 @@ struct ProView: View {
             }
         }
         .navigationTitle("DevTools Pro")
-        .onAppear {
-            ads.isEditing = true
-        }
-        .onDisappear {
-            ads.isEditing = false
-        }
     }
 }

@@ -47,10 +47,6 @@ configs.append(('DevToolsSafari','extension','Configuration/Safari-Info.plist',[
 for action in ['AddBlacklist','AddAllowList','Show','Hide','Enable','Disable']:
     configs.append(('DevTools'+action,'extension',f'Configuration/{action}-Info.plist',['ActionExtension/ActionViewController.swift']+shared,['ActionExtension/Action.js','Shared/PrivacyInfo.xcprivacy']))
 
-ads_package=add('package:ads','XCRemoteSwiftPackageReference',repositoryURL='https://github.com/googleads/swift-package-manager-google-mobile-ads.git',requirement={'kind':'exactVersion','version':'13.11.0'})
-ump_package=add('package:ump','XCRemoteSwiftPackageReference',repositoryURL='https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git',requirement={'kind':'exactVersion','version':'3.1.0'})
-ads_product=add('product:ads','XCSwiftPackageProductDependency',package=ads_package,productName='GoogleMobileAds')
-ump_product=add('product:ump','XCSwiftPackageProductDependency',package=ump_package,productName='GoogleUserMessagingPlatform')
 
 for name,kind,plist,sources,resources in configs:
     product=add('product:'+name,'PBXFileReference',explicitFileType='wrapper.application' if kind=='app' else 'wrapper.app-extension',includeInIndex=0,path=name+('.app' if kind=='app' else '.appex'),sourceTree='BUILT_PRODUCTS_DIR')
@@ -59,17 +55,12 @@ for name,kind,plist,sources,resources in configs:
     phases.append(add('sources:'+name,'PBXSourcesBuildPhase',buildActionMask=2147483647,files=[buildfile(name,p) for p in sources],runOnlyForDeploymentPostprocessing=0))
     phases.append(add('resources:'+name,'PBXResourcesBuildPhase',buildActionMask=2147483647,files=[buildfile(name,p) for p in resources],runOnlyForDeploymentPostprocessing=0))
     framework_files=[]
-    if kind=='app':
-        for tag,productid in [('ads',ads_product),('ump',ump_product)]:
-            framework_files.append(add('framework:'+tag,'PBXBuildFile',productRef=productid))
     phases.append(add('frameworks:'+name,'PBXFrameworksBuildPhase',buildActionMask=2147483647,files=framework_files,runOnlyForDeploymentPostprocessing=0))
     settings={'PRODUCT_NAME':'$(TARGET_NAME)','PRODUCT_BUNDLE_IDENTIFIER':'$(DT_BUNDLE_PREFIX)' + ('.'+name.removeprefix('DevTools') if kind!='app' else ''),'INFOPLIST_FILE':plist,'GENERATE_INFOPLIST_FILE':'NO','CODE_SIGN_ENTITLEMENTS':'Configuration/Shared.entitlements','SDKROOT':'iphoneos','SUPPORTED_PLATFORMS':'iphoneos iphonesimulator','LD_RUNPATH_SEARCH_PATHS':['$(inherited)','@executable_path/Frameworks'] + (['@executable_path/../../Frameworks'] if kind!='app' else []),'SKIP_INSTALL':'NO' if kind=='app' else 'YES','APPLICATION_EXTENSION_API_ONLY':'NO' if kind=='app' else 'YES'}
     if kind=='app':
         settings['ASSETCATALOG_COMPILER_APPICON_NAME']='AppIcon'
     cfg=configlist('config:'+name,settings)
     target=add('target:'+name,'PBXNativeTarget',buildConfigurationList=cfg,buildPhases=phases,buildRules=[],dependencies=[],name=name,productName=name,productReference=product,productType='com.apple.product-type.application' if kind=='app' else 'com.apple.product-type.app-extension')
-    if kind=='app':
-        objects[target]['packageProductDependencies']=[ads_product,ump_product]
     targets.append(target)
 
 projectid=oid('project')
@@ -92,7 +83,7 @@ productgroup=add('products','PBXGroup',children=products,name='Products',sourceT
 fileids=[key for key,value in objects.items() if value['isa']=='PBXFileReference' and value.get('sourceTree')=='<group>']
 rootgroup=add('rootgroup','PBXGroup',children=fileids+[productgroup],sourceTree='<group>')
 projectconfig=configlist('projectconfig',{'CLANG_ENABLE_MODULES':'YES','CLANG_ENABLE_OBJC_ARC':'YES','GCC_C_LANGUAGE_STANDARD':'gnu17','CLANG_WARN_DOCUMENTATION_COMMENTS':'YES','CLANG_WARN_UNGUARDED_AVAILABILITY':'YES_AGGRESSIVE','GCC_WARN_UNUSED_VARIABLE':'YES','GCC_WARN_UNUSED_FUNCTION':'YES','ENABLE_STRICT_OBJC_MSGSEND':'YES'},True)
-add('project','PBXProject',attributes={'BuildIndependentTargetsInParallel':'YES','LastSwiftUpdateCheck':'1600','LastUpgradeCheck':'1600','TargetAttributes':{t:{'CreatedOnToolsVersion':'16.0','ProvisioningStyle':'Automatic','SystemCapabilities':{'com.apple.ApplicationGroups.iOS':{'enabled':1}}} for t in targets}},buildConfigurationList=projectconfig,compatibilityVersion='Xcode 14.0',developmentRegion='en',hasScannedForEncodings=0,knownRegions=['en','Base'],mainGroup=rootgroup,packageReferences=[ads_package,ump_package],productRefGroup=productgroup,projectDirPath='',projectRoot='',targets=targets)
+add('project','PBXProject',attributes={'BuildIndependentTargetsInParallel':'YES','LastSwiftUpdateCheck':'1600','LastUpgradeCheck':'1600','TargetAttributes':{t:{'CreatedOnToolsVersion':'16.0','ProvisioningStyle':'Automatic','SystemCapabilities':{'com.apple.ApplicationGroups.iOS':{'enabled':1}}} for t in targets}},buildConfigurationList=projectconfig,compatibilityVersion='Xcode 14.0',developmentRegion='en',hasScannedForEncodings=0,knownRegions=['en','Base'],mainGroup=rootgroup,packageReferences=[],productRefGroup=productgroup,projectDirPath='',projectRoot='',targets=targets)
 
 def atom(value):
     return value if re.fullmatch(r"[A-Za-z0-9_./]+", value) else json.dumps(value, ensure_ascii=False)

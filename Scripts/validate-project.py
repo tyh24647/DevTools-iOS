@@ -54,7 +54,8 @@ assert cursor == len(tokens)
 objects = project['objects']
 assert objects[project['rootObject']]['isa'] == 'PBXProject'
 targets = [obj for obj in objects.values() if obj['isa'] == 'PBXNativeTarget']
-assert len(targets) == 9
+assert len(targets) == 8
+assert all(target["name"] != "DevTools (macOS)" for target in targets)
 missing = []
 for obj in objects.values():
     if obj['isa'] == 'PBXFileReference' and obj.get('sourceTree') == '<group>':
@@ -111,8 +112,10 @@ for configuration_name in ('Debug', 'Release'):
     for target in targets:
         configurations = [objects[key] for key in objects[target['buildConfigurationList']]['buildConfigurations']]
         settings = next(item['buildSettings'] for item in configurations if item['name'] == configuration_name)
-        if target['name'] != 'DevTools (macOS)':
-            bundle_ids.append(settings['PRODUCT_BUNDLE_IDENTIFIER'])
+        assert settings.get('SUPPORTS_MACCATALYST', 'NO') == 'NO'
+        assert settings.get('SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD', 'NO') == 'NO'
+        assert 'macosx' not in settings.get('SUPPORTED_PLATFORMS', '')
+        bundle_ids.append(settings['PRODUCT_BUNDLE_IDENTIFIER'])
     assert len(bundle_ids) == len(set(bundle_ids)), 'Duplicate iOS bundle identifiers.'
 
 for path in (root / 'Configuration').glob('*.plist'):
@@ -124,4 +127,4 @@ assert storekit['products'][0]['displayPrice'] == '19.99'
 assert storekit['subscriptionGroups'][0]['subscriptions'][0]['displayPrice'] == '2.99'
 catalog = json.loads((root / 'Shared/tool-catalog.json').read_text())
 assert len(catalog['assets']) == 10
-print('Validated 9 targets, 7 embedded extensions, shared entitlements, resources, plists and test pricing.')
+print('Validated 8 targets, 7 embedded extensions, shared entitlements, resources, plists and test pricing.')

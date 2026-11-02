@@ -20,6 +20,7 @@ actor HLSRecorder {
     private var folder: URL!
     private var initialized: [String: String] = [:]
     private var keys: [URL: Data] = [:]
+    private var thumbnailScheduled = false
 
     init(http: MediaHTTP, choice: MediaChoice, settings: MediaSettings, root: URL, title: String, id: UUID) {
         self.http = http
@@ -38,7 +39,8 @@ actor HLSRecorder {
     }
 
     func capture(progress: @escaping @Sendable (Int64, Double, Double?) async -> Void,
-                 ready: @escaping @Sendable (URL, RecordingCheckpoint) async -> Void) async throws {
+                 ready: @escaping @Sendable (URL, RecordingCheckpoint) async -> Void,
+                 thumbnail: @escaping @Sendable (Data) async -> Void = { _ in }) async throws {
         defer { http.close() }
         try beginPart()
         let urls = [choice.video] + (choice.audio.map { [$0] } ?? [])
@@ -84,6 +86,15 @@ actor HLSRecorder {
                     }
                     try ensureSpace()
                     streams[stream].append(try await fetch(segment, stream: stream))
+                    if stream == 0 && !thumbnailScheduled, let first = streams[stream].first,
+                       let snapshot = try? MediaThumbnailCache.stageSegment(folder: folder, segment: first) {
+                        thumbnailScheduled = true
+                        Task {
+                            if let data = await MediaThumbnailCache.shared.segmentThumbnail(snapshot) {
+                                await thumbnail(data)
+                            }
+                        }
+                    }
                     seen[stream] = segment.sequence
                     clocks[stream] += segment.duration
                     if stream == 0 { captured += segment.duration }

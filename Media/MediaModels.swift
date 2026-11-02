@@ -25,7 +25,19 @@ struct PageMedia: Identifiable, Equatable {
     var title: String
     var hls: Bool
     var mime: String
-    var id: String { "\(tabID.uuidString):\(url)" }
+    var durationHint: Double? = nil
+    // Retain content/quality query parameters; only discard known rotating credentials.
+    var discoveryKey: String {
+        guard hls, var parts = URLComponents(string: url) else { return url }
+        let transient: Set<String> = ["token", "sig", "signature", "expires", "expiry", "policy", "key-pair-id", "hdnts", "hdnea"]
+        parts.fragment = nil
+        parts.queryItems = parts.queryItems?.filter {
+            !transient.contains($0.name.lowercased()) && !$0.name.lowercased().hasPrefix("x-amz-")
+        }.sorted { ($0.name, $0.value ?? "") < ($1.name, $1.value ?? "") }
+        if parts.queryItems?.isEmpty == true { parts.queryItems = nil }
+        return parts.string ?? url
+    }
+    var id: String { "\(tabID.uuidString):\(discoveryKey)" }
     var isBlob: Bool { url.hasPrefix("blob:") }
 }
 
@@ -69,6 +81,7 @@ final class MediaTransfer: ObservableObject, Identifiable {
     @Published var duration: Double = 0
     @Published var progress: Double?
     @Published var outputs: [URL] = []
+    @Published var thumbnail: Data?
     @Published var error: String?
     @Published var finished = false
     var pendingExports = 0

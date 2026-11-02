@@ -131,9 +131,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "1A54F22D30734B7E00CA2787"
-            BuildableName = "DevTools (macOS).app"
-            BlueprintName = "DevTools (macOS)"
+            BlueprintIdentifier = "B7D9602A717E44E0418DEEF0"
+            BuildableName = "DevTools.app"
+            BlueprintName = "DevTools"
             ReferencedContainer = "container:DevTools.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -148,9 +148,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "1A54F22D30734B7E00CA2787"
-            BuildableName = "DevTools (macOS).app"
-            BlueprintName = "DevTools (macOS)"
+            BlueprintIdentifier = "B7D9602A717E44E0418DEEF0"
+            BuildableName = "DevTools.app"
+            BlueprintName = "DevTools"
             ReferencedContainer = "container:DevTools.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
