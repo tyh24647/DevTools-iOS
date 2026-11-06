@@ -1,3 +1,5 @@
+> Native browser and media recording update: see [MEDIA-PARITY.md](MEDIA-PARITY.md) for usage, platform limits, build requirements and validation. On a Mac with an iOS 27 SDK, run `bash Scripts/build-ios.sh` for an unsigned Simulator app, or open the `DevTools` scheme in Xcode for a signed device build.
+
 # ⚙︎ DevTools for iOS
 
 SwiftUI containing app + Safari Web Extension + six independently named Safari share-sheet actions.
@@ -9,7 +11,7 @@ The app defaults to **enabled**, **run on every webpage**, and **automatically i
 1. Open **DevTools.xcodeproj** in Xcode 16 or newer, using an Xcode version that supports the iOS version installed on your phone. Deployment target: iOS 17.5.
 2. Copy Configuration/Developer.xcconfig.example to Configuration/Developer.xcconfig and set your development team. Use an App Group registered to that team.
 3. In Signing & Capabilities, verify the app and **all seven extension targets** use the same team and App Group. The supplied identifier is group.com.tyh24647.DevTools; change DT_APP_GROUP once in Developer.xcconfig if needed. DT_BUNDLE_PREFIX defaults to com.tyh24647.DevTools.
-4. Let Xcode resolve Google Mobile Ads and User Messaging Platform through Swift Package Manager.
+4. Let Xcode resolve the media-processing package through Swift Package Manager.
 5. Select the **DevTools** scheme and your iPhone, then Run.
 6. On the phone, open **Settings → Apps → Safari → Extensions → ⚙︎ DevTools**, enable it and grant website access. Choose All Websites for automatic operation everywhere.
 7. Reload a normal HTTP/HTTPS page. The floating Eruda button should appear. Safari’s extension popup provides Show, Hide, enable/disable, and quick rule creation.
@@ -103,7 +105,7 @@ Pro enables changing the panel size, transparency, theme and icon persistence, p
 
 iOS does not provide a usable npm command-line runtime inside an ordinary app. JavaScript “installation” here means bundling npm artifacts at build time or caching approved bundle files in the Debug build.
 
-## Purchases and ads
+## Purchases
 
 Local StoreKit configuration contains the requested US prices:
 
@@ -114,18 +116,9 @@ Local StoreKit configuration contains the requested US prices:
 
 Choose the **DevTools-StoreKit** scheme for local purchase testing. If Xcode does not resolve the configuration automatically, select Configuration/DevTools.storekit in **Edit Scheme → Run → Options → StoreKit Configuration**. Testing transactions do not charge real money. Production products must be created in your App Store Connect account; real price labels come from StoreKit’s localized displayPrice.
 
-Both products unlock the same Pro features and remove ads. Restore, pending purchases, cancellation, verified transactions, expiry and revocation are handled. Buying lifetime does not cancel an existing monthly subscription; the paywall directs users to subscription management.
+Both products unlock the same Pro features. Restore, pending purchases, cancellation, verified transactions, expiry and revocation are handled. Buying lifetime does not cancel an existing monthly subscription; the paywall directs users to subscription management.
 
-Apple discontinued iAd. The containing app instead integrates **Google Mobile Ads 13.11.0** and **User Messaging Platform 3.1.0**, using Google’s official **test** app and ad unit IDs. Replace the four IDs in the xcconfig before production.
-
-- Bottom banner on containing-app screens and list/rule editor sheets.
-- A completed in-app rule addition refreshes the banner and makes an interstitial eligible.
-- Foreground returns use a preloaded app-open ad.
-- Every three minutes makes an interstitial eligible at the next navigation or completed edit.
-- No timer interrupts typing or purchasing; no-fill and consent failures never prevent saving a rule.
-- At least 30 seconds separates full-screen presentations; the first cold launch is skipped while consent initializes.
-- No advertising in Safari pages or share actions. No queued “ad debt” is imposed for a share action.
-- Non-personalized ad requests, UMP consent flow and privacy-options control are included. The app does not request IDFA tracking authorization or pass browsing data to the SDK.
+The app is ad-free. Advertising SDKs, banner views, interstitials, app-open ads, and ad consent UI are removed. The browser blocks known advertising hosts and explicitly marked ad containers; promotional clips served as normal site media remain distinguishable by their duration in the media picker.
 
 See Documentation/RELEASE.md for the required account configuration and release considerations.
 

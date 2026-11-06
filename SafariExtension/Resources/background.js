@@ -107,7 +107,7 @@ async function refresh(tabID, requestedURL, ticket, manualCommand) {
             },
             args: [url]
         });
-        await execute(tabID, { files: ["page-runtime.js", "resource-timing.js"] });
+        await execute(tabID, { files: ["page-runtime.js", "resource-timing.js", "media-handoff.js"] });
         for (const id of assetIDs(config)) {
             const present = await execute(tabID, {
                 func: (assetID, expectedURL) =>

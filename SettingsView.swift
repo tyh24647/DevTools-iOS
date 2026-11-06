@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
-    @EnvironmentObject private var ads: AdManager
 
     var body: some View {
         Form {
@@ -29,19 +28,11 @@ struct SettingsView: View {
                     SetupView()
                 }
             }
-            Section("Privacy & advertising") {
+            Section("Privacy") {
                 NavigationLink("Privacy information") {
                     PrivacyView()
                 }
-                if ads.privacyOptionsRequired {
-                    Button("Advertising privacy options") {
-                        Task {
-                            await ads.showPrivacyOptions()
-                        }
-                    }
-                }
-                Link("Report an inappropriate ad", destination: URL(string: "https://support.google.com/ads/answer/2535140")!)
-                Text("Ads appear only in this app. Your Safari URLs, lists and console data are never sent to the advertising SDK by DevTools.")
+                Text("DevTools does not display ads or use an advertising SDK.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -68,8 +59,7 @@ struct PrivacyView: View {
             }
             Section("Network services") {
                 Text("When update checks are enabled, the app contacts npm and jsDelivr for package metadata. Development builds may download packages. These services receive ordinary network metadata such as your IP address, but DevTools does not send them your lists or visited pages.")
-                Text("Purchases are handled by Apple. The free containing app uses Google Mobile Ads and User Messaging Platform. Ad requests use the non-personalized setting; Google may process device, network and ad-interaction data. Consent controls are shown when required. Pro disables advertising.")
-                Link("Google privacy policy", destination: URL(string: "https://policies.google.com/privacy")!)
+                Text("Purchases are handled by Apple. DevTools does not send data to an advertising SDK.")
             }
             Section("Controls") {
                 Text("Disable the Safari extension or revoke its website access in Settings to stop injection. Disable automatic updates to stop package checks. Remove the app to remove its locally stored data. Eruda may remember console settings in each website’s local storage; Safari’s website-data controls can remove them.")

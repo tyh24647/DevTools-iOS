@@ -2,9 +2,7 @@ import SwiftUI
 import Combine
 
 struct RootView: View {
-    @EnvironmentObject private var ads: AdManager
     @State private var selection = 0
-    private let adClock = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         TabView(selection: $selection) {
@@ -37,14 +35,7 @@ struct RootView: View {
             }
             .tag(3)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            AdFooter()
-        }
-        .onReceive(adClock) { _ in
-            ads.tick()
-        }
         .onChange(of: selection) { _, _ in
-            ads.naturalBreak()
         }
     }
 }
@@ -131,7 +122,6 @@ struct DashboardView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(model.isPro ? "DevTools Pro is active" : "Make DevTools yours")
                                 .font(.headline)
-                            Text("Vue inspector, resource waterfall, themes and more. No ads.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

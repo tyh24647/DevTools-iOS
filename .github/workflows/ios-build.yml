@@ -1,0 +1,21 @@
+name: iOS simulator build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and package DevTools
+        run: bash Scripts/build-ios.sh
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevTools-iOS-Simulator
+          path: Build/DevTools-iOS-Simulator.zip
+          if-no-files-found: error

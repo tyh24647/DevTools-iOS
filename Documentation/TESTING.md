@@ -65,3 +65,27 @@ Then run on a signed device. Safari and share extensions must be verified from S
 9. Test consent, ad no-fill, app-open presentation, completed rule edits and the three-minute eligibility boundary.
 10. Toggle automatic updates; exercise offline checks, downloaded-cache clearing and Release’s bundle-only execution.
 11. Open a Vue development app, a production Vue app, a strict-CSP site and a resource-heavy page. Inspect console logs and memory use.
+
+### Downloads browser and previews
+
+Run `python3 Scripts/test-downloads.py` on a Mac for Swift Testing checks of the
+actual file-operation and thumbnail-cache helpers. The harness generates a video,
+decodes and checks the first-frame pixels, verifies JPEG size and disk-cache reuse
+across rename/move/reopening, and checks overwrite, path, and active-transfer guards.
+It does not run the UIKit interface or FFmpeg segment remuxing.
+
+On an iPhone or installed iOS Simulator runtime:
+
+1. Cold-launch and confirm Downloads is selected. Create folders, download a video,
+   and check the thumbnail appears in Transfers and Saved media. For HLS, check it
+   appears during capture without interrupting recording.
+2. Long-press a saved file. Rename it, move it into a folder, and share it. Confirm
+   no file is overwritten and that its thumbnail and completed-transfer links follow it.
+3. In Media settings, select each Video previews mode. Fullscreen should open a
+   dismissible player; Above the file should insert a player without covering rows.
+   Starting another preview or closing it should stop the previous player.
+4. Check Picture in Picture on a supported physical device, including background
+   playback, returning to Downloads from the floating player, and inline fallback
+   when PiP is unavailable or disabled by iOS.
+5. Relaunch and confirm the preview preference and existing thumbnails are reused.
+   Images/documents should still open with Quick Look, and folders should navigate.

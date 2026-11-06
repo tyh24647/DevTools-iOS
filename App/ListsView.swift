@@ -193,7 +193,6 @@ struct ListDetailView: View {
 
 struct ListEditorView: View {
     @EnvironmentObject private var model: AppModel
-    @EnvironmentObject private var ads: AdManager
     @Environment(\.dismiss) private var dismiss
     let existing: RuleList?
     @State private var name: String
@@ -246,22 +245,16 @@ struct ListEditorView: View {
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || name.count > 80)
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                AdFooter()
-            }
         }
         .onAppear {
-            ads.isEditing = true
         }
         .onDisappear {
-            ads.isEditing = false
         }
     }
 }
 
 struct RuleEditorView: View {
     @EnvironmentObject private var model: AppModel
-    @EnvironmentObject private var ads: AdManager
     @Environment(\.dismiss) private var dismiss
     let listID: String
     let existing: SiteRule?
@@ -313,15 +306,10 @@ struct RuleEditorView: View {
                         .disabled(pattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                AdFooter()
-            }
         }
         .onAppear {
-            ads.isEditing = true
         }
         .onDisappear {
-            ads.isEditing = false
         }
     }
 
@@ -346,7 +334,6 @@ struct RuleEditorView: View {
             }
             dismiss()
             if existing == nil {
-                ads.listEntryAdded()
             }
         } catch {
             validationError = error.localizedDescription

@@ -1,25 +1,14 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "GoogleMobileAds",
-        "repositoryURL": "https://github.com/googleads/swift-package-manager-google-mobile-ads",
-        "state": {
-          "branch": null,
-          "revision": "d1fa1f5c1dfe3b43d56c73f4de388ad3316618bc",
-          "version": "13.11.0"
-        }
-      },
-      {
-        "package": "GoogleUserMessagingPlatform",
-        "repositoryURL": "https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git",
-        "state": {
-          "branch": null,
-          "revision": "13b248eaa73b7826f0efb1bcf455e251d65ecb1b",
-          "version": "3.1.0"
-        }
+  "originHash" : "a69036aff89cb22e5259d0533c483f01f1963c3574179e8b8695d4399ef2a86c",
+  "pins" : [
+    {
+      "identity" : "ffmpegbuild",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/superuser404notfound/FFmpegBuild",
+      "state" : {
+        "revision" : "f93e7788796eeede40bf866ed2f802b4dbfbef50"
       }
-    ]
-  },
-  "version": 1
+    }
+  ],
+  "version" : 3
 }

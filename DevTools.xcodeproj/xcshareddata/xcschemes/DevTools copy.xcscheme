@@ -24,20 +24,6 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "1A54F22D30734B7E00CA2787"
-               BuildableName = "DevTools (macOS).app"
-               BlueprintName = "DevTools (macOS)"
-               ReferencedContainer = "container:DevTools.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
                BlueprintIdentifier = "05CF322D67B502D9461C21C8"
                BuildableName = "DevToolsHide.appex"
                ReferencedContainer = "container:DevTools.xcodeproj">
@@ -145,9 +131,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "1A54F22D30734B7E00CA2787"
-            BuildableName = "DevTools (macOS).app"
-            BlueprintName = "DevTools (macOS)"
+            BlueprintIdentifier = "B7D9602A717E44E0418DEEF0"
+            BuildableName = "DevTools.app"
+            BlueprintName = "DevTools"
             ReferencedContainer = "container:DevTools.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -162,9 +148,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "1A54F22D30734B7E00CA2787"
-            BuildableName = "DevTools (macOS).app"
-            BlueprintName = "DevTools (macOS)"
+            BlueprintIdentifier = "B7D9602A717E44E0418DEEF0"
+            BuildableName = "DevTools.app"
+            BlueprintName = "DevTools"
             ReferencedContainer = "container:DevTools.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

@@ -9,7 +9,8 @@
         "check": "node Scripts/check.mjs",
         "update:tools": "npm install --save-exact --ignore-scripts eruda@latest eruda-vue@latest eruda-vue-devtools@latest vconsole@latest vue-vconsole-devtools@latest eruda-code@latest eruda-dom@latest eruda-timing@latest eruda-fps@latest eruda-features@latest && npm run vendor",
         "test:browser": "node Tests/browser-smoke.mjs",
-        "project": "python3 Scripts/generate-project.py"
+        "project": "python3 Scripts/patch-media-project.py",
+        "test:native-browser": "node Tests/native-browser-smoke.mjs"
     },
     "dependencies": {
         "eruda": "3.4.3",

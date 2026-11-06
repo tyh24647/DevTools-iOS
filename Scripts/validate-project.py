@@ -49,12 +49,16 @@ def value():
         return json.loads(token)
     return int(token) if token.isdigit() else token
 
+def embeds_extensions(phase):
+    return phase.get('dstSubfolderSpec') == 13 or phase.get('dstSubfolder') == 'PlugIns'
+
 project = value()
 assert cursor == len(tokens)
 objects = project['objects']
 assert objects[project['rootObject']]['isa'] == 'PBXProject'
 targets = [obj for obj in objects.values() if obj['isa'] == 'PBXNativeTarget']
 assert len(targets) == 8
+assert all(target["name"] != "DevTools (macOS)" for target in targets)
 missing = []
 for obj in objects.values():
     if obj['isa'] == 'PBXFileReference' and obj.get('sourceTree') == '<group>':
@@ -63,9 +67,9 @@ for obj in objects.values():
 assert not missing, 'Missing referenced files: ' + repr(missing)
 
 app = next(target for target in targets if target['name'] == 'DevTools')
-assert len(app['dependencies']) == 7
+assert sum('target' in objects[key] for key in app['dependencies']) == 7
 embed = [objects[key] for key in app['buildPhases'] if objects[key]['isa'] == 'PBXCopyFilesBuildPhase']
-assert len(embed) == 1 and len(embed[0]['files']) == 7 and embed[0]['dstSubfolderSpec'] == 13
+assert len(embed) == 1 and len(embed[0]['files']) == 7 and embeds_extensions(embed[0])
 
 for target in targets:
     settings = objects[objects[target['buildConfigurationList']]['buildConfigurations'][0]]['buildSettings']
@@ -78,12 +82,44 @@ for target in targets:
             for buildID in phase['files']:
                 fileID = objects[buildID]['fileRef']
                 assert (root / objects[fileID]['path']).exists()
-        if target['name'] != 'DevTools' and phase['isa'] == 'PBXFrameworksBuildPhase':
+        if target.get('productType') != 'com.apple.product-type.application' and phase['isa'] == 'PBXFrameworksBuildPhase':
             assert phase['files'] == [], 'Advertising must not be linked to extensions.'
-    if target['name'] not in ('DevTools', 'DevToolsSafari'):
+    if target.get('productType') != 'com.apple.product-type.application' and target['name'] != 'DevToolsSafari':
         extension = plist['NSExtension']
         assert extension['NSExtensionPointIdentifier'] == 'com.apple.ui-services'
         assert extension['NSExtensionAttributes']['NSExtensionJavaScriptPreprocessingFile'] == 'Action'
+
+# Native media sources and frameworks are exclusive to the containing apps.
+for target in targets:
+    is_app = target.get('productType') == 'com.apple.product-type.application'
+    for dependency_id in target.get('dependencies', []):
+        dependency = objects[dependency_id]
+        assert dependency['isa'] == 'PBXTargetDependency'
+        assert 'target' in dependency or 'targetProxy' in dependency
+    native = []
+    for phaseid in target['buildPhases']:
+        phase = objects[phaseid]
+        if phase['isa'] == 'PBXSourcesBuildPhase':
+            native += [objects[objects[build]['fileRef']]['path'] for build in phase['files'] if objects[objects[build]['fileRef']]['path'].startswith(('Media/', 'Browser/', 'Plugins/'))]
+    assert bool(native) == is_app
+    ffmpeg = [objects[key]['productName'] for key in target.get('packageProductDependencies', []) if objects[key]['productName'] == 'AetherFFmpegBuild']
+    assert bool(ffmpeg) == is_app
+    if is_app:
+        embed = [objects[key] for key in target['buildPhases'] if objects[key]['isa'] == 'PBXCopyFilesBuildPhase']
+        assert any(len(phase['files']) == 7 and embeds_extensions(phase) for phase in embed)
+        for key in objects[target['buildConfigurationList']]['buildConfigurations']:
+            assert objects[key]['buildSettings']['SWIFT_OBJC_BRIDGING_HEADER'] == 'Configuration/DevTools-Bridging-Header.h'
+
+for configuration_name in ('Debug', 'Release'):
+    bundle_ids = []
+    for target in targets:
+        configurations = [objects[key] for key in objects[target['buildConfigurationList']]['buildConfigurations']]
+        settings = next(item['buildSettings'] for item in configurations if item['name'] == configuration_name)
+        assert settings.get('SUPPORTS_MACCATALYST', 'NO') == 'NO'
+        assert settings.get('SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD', 'NO') == 'NO'
+        assert 'macosx' not in settings.get('SUPPORTED_PLATFORMS', '')
+        bundle_ids.append(settings['PRODUCT_BUNDLE_IDENTIFIER'])
+    assert len(bundle_ids) == len(set(bundle_ids)), 'Duplicate iOS bundle identifiers.'
 
 for path in (root / 'Configuration').glob('*.plist'):
     plistlib.loads(path.read_bytes())

@@ -1,0 +1,59 @@
+[
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]*\\.)?doubleclick\\.net/"
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]*\\.)?googlesyndication\\.com/"
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]*\\.)?googleadservices\\.com/"
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]*\\.)?adservice\\.google\\.com/"
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]*\\.)?ads\\.twitter\\.com/"
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]*\\.)?ads\\.tiktok\\.com/"
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": ".*"
+    },
+    "action": {
+      "type": "css-display-none",
+      "selector": ".adsbygoogle, iframe[src*=\"doubleclick.net\"], [id^=\"google_ads_iframe\"], [data-ad-slot], [data-ad-unit]"
+    }
+  }
+]
