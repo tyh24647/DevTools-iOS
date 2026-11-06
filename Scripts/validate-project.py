@@ -49,6 +49,9 @@ def value():
         return json.loads(token)
     return int(token) if token.isdigit() else token
 
+def embeds_extensions(phase):
+    return phase.get('dstSubfolderSpec') == 13 or phase.get('dstSubfolder') == 'PlugIns'
+
 project = value()
 assert cursor == len(tokens)
 objects = project['objects']
@@ -66,7 +69,7 @@ assert not missing, 'Missing referenced files: ' + repr(missing)
 app = next(target for target in targets if target['name'] == 'DevTools')
 assert sum('target' in objects[key] for key in app['dependencies']) == 7
 embed = [objects[key] for key in app['buildPhases'] if objects[key]['isa'] == 'PBXCopyFilesBuildPhase']
-assert len(embed) == 1 and len(embed[0]['files']) == 7 and embed[0]['dstSubfolderSpec'] == 13
+assert len(embed) == 1 and len(embed[0]['files']) == 7 and embeds_extensions(embed[0])
 
 for target in targets:
     settings = objects[objects[target['buildConfigurationList']]['buildConfigurations'][0]]['buildSettings']
@@ -103,7 +106,7 @@ for target in targets:
     assert bool(ffmpeg) == is_app
     if is_app:
         embed = [objects[key] for key in target['buildPhases'] if objects[key]['isa'] == 'PBXCopyFilesBuildPhase']
-        assert any(len(phase['files']) == 7 and phase['dstSubfolderSpec'] == 13 for phase in embed)
+        assert any(len(phase['files']) == 7 and embeds_extensions(phase) for phase in embed)
         for key in objects[target['buildConfigurationList']]['buildConfigurations']:
             assert objects[key]['buildSettings']['SWIFT_OBJC_BRIDGING_HEADER'] == 'Configuration/DevTools-Bridging-Header.h'
 
