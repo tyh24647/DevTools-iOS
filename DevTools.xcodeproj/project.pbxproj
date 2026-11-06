@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A1B2C3D4E5F60718293A4B5 /* SafariExtension/Resources/media-handoff.js in Resources */ = {isa = PBXBuildFile; fileRef = 0A1B2C3D4E5F60718293A4B6 /* SafariExtension/Resources/media-handoff.js */; };
 		0F573151246E7C8329B7E808 /* Browser/BrowserViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CACCB834216F58970EEAA90 /* Browser/BrowserViews.swift */; };
 		14478CCA08CD754E1258F071 /* Shared/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9D47D2852C4D87F048C06374 /* Shared/PrivacyInfo.xcprivacy */; };
 		1A06751F3072B6C100572786 /* ProView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A06751A3072B6C100572786 /* ProView.swift */; };
@@ -165,7 +166,6 @@
 			isa = PBXCopyFilesBuildPhase;
 			dstPath = "";
 			dstSubfolder = PlugIns;
-			dstSubfolderSpec = 13;
 			files = (
 				72419ACD12FE28FD89BDBD76 /* DevToolsShow.appex in Embed App Extensions */,
 				A2E9455212E7799BCDF7F13D /* DevToolsHide.appex in Embed App Extensions */,
@@ -181,6 +181,7 @@
 
 /* Begin PBXFileReference section */
 		062E4DB1D8AB23DD5FEEFB9C /* Media/DownloadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Media/DownloadsView.swift; sourceTree = "<group>"; };
+		0A1B2C3D4E5F60718293A4B6 /* SafariExtension/Resources/media-handoff.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "SafariExtension/Resources/media-handoff.js"; sourceTree = "<group>"; };
 		0BC5C2A24655FC493A716A38 /* DevToolsDisable.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DevToolsDisable.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		0FD47DE585D9BDAC5FCA7873 /* Media/MediaExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Media/MediaExporter.swift; sourceTree = "<group>"; };
 		17C4D2E69FF03D296F58DC59 /* DevToolsShow.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DevToolsShow.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -349,6 +350,7 @@
 				4E8094FB0A52C529ACEBC74A /* SafariExtension/Resources/content.js */,
 				C08934F486E0A29569E72182 /* SafariExtension/Resources/manifest.json */,
 				F95D5C5758461302D2CA6B17 /* SafariExtension/Resources/page-runtime.js */,
+				0A1B2C3D4E5F60718293A4B6 /* SafariExtension/Resources/media-handoff.js */,
 				E4B63D0C985E6243ED9CDD16 /* SafariExtension/Resources/popup.css */,
 				7582AE7CC5B710B1C5FDC9BE /* SafariExtension/Resources/popup.html */,
 				736BAE1674AD522FE8CC454A /* SafariExtension/Resources/popup.js */,
@@ -394,6 +396,7 @@
 				5DC7FBC60BE7761899C7D7EB /* Licenses/FFmpegBuild */,
 				2A44EC573093FBB800D766F0 /* Media 2 */,
 			);
+			indentWidth = 5;
 			sourceTree = "<group>";
 		};
 		FBDC4F23F93125BBEEAE800C /* Products */ = {
@@ -703,6 +706,7 @@
 				335AC6A5938A6B1F9CCA561C /* SafariExtension/Resources/content.js in Resources */,
 				891012DDA99AB044F70D073D /* SafariExtension/Resources/manifest.json in Resources */,
 				D78E0F143439D4247629708C /* SafariExtension/Resources/page-runtime.js in Resources */,
+				0A1B2C3D4E5F60718293A4B5 /* SafariExtension/Resources/media-handoff.js in Resources */,
 				7ECD60F4E8ED9C36724B83D8 /* SafariExtension/Resources/popup.css in Resources */,
 				546EAF15D3435C5A38C9CCFE /* SafariExtension/Resources/popup.html in Resources */,
 				225DAEC1F74ED788F69FAF3D /* SafariExtension/Resources/popup.js in Resources */,

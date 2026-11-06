@@ -128,7 +128,7 @@ private struct SafariBrowserPage: View {
                     } else {
                         Button { showingDetectedMedia = true } label: {
                             Image(systemName: "arrow.down").font(.system(size: 22)).frame(width: 48, height: 48)
-                        }.accessibilityLabel("Save video or inspect detected media")
+                        }.accessibilityLabel("Download media or inspect detected media")
                     }
                 }
                 .modifier(BrowserGlassSurface()).padding(12)

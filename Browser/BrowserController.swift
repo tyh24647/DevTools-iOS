@@ -690,16 +690,54 @@ final class BrowserController: ObservableObject {
     }
 
     func handle(_ url: URL) {
-        guard url.scheme == "devtools", url.host == "record", let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let resource = parts.queryItems?.first(where: { $0.name == "url" })?.value,
-              let target = Self.normalizedURL(resource) else {
+        guard url.scheme == "devtools", let host = url.host,
+              let parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             notice = "Unsupported DevTools link."
             return
         }
-        let tab = newTab(url: target)
-        if let tab {
-            media.pending = PageMedia(url: target.absoluteString, page: target.absoluteString, tabID: tab.id, title: "Safari media", hls: target.pathExtension.lowercased() == "m3u8", mime: "video/mp4")
+        switch host {
+        case "record":
+            guard let resource = parts.queryItems?.first(where: { $0.name == "url" })?.value,
+                  let target = Self.normalizedURL(resource) else {
+                notice = "Unsupported DevTools recording link."
+                return
+            }
+            let tab = newTab(url: target)
+            if let tab {
+                media.pending = PageMedia(url: target.absoluteString, page: target.absoluteString, tabID: tab.id, title: "Safari media", hls: target.pathExtension.lowercased() == "m3u8", mime: "video/mp4")
+            }
+        case "download":
+            handleDownloadLink(parts)
+        default:
+            notice = "Unsupported DevTools link."
         }
+    }
+
+    private func handleDownloadLink(_ parts: URLComponents) {
+        guard let rawResource = parts.queryItems?.first(where: { $0.name == "url" })?.value,
+              let resource = Self.normalizedURL(rawResource),
+              let resourceScheme = resource.scheme?.lowercased(),
+              resourceScheme == "http" || resourceScheme == "https" else {
+            notice = "Unsupported DevTools download link."
+            return
+        }
+        let page = parts.queryItems?.first(where: { $0.name == "page" })?.value.flatMap(Self.normalizedURL).flatMap { pageURL in
+            guard let scheme = pageURL.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return nil }
+            return pageURL
+        } ?? resource
+        let title = String(parts.queryItems?.first(where: { $0.name == "title" })?.value ?? "Downloaded media").prefix(160)
+        let extensionName = resource.pathExtension.lowercased()
+        let mime: String
+        switch extensionName {
+        case "m3u8": mime = "application/vnd.apple.mpegurl"
+        case "webm": mime = "video/webm"
+        case "mov": mime = "video/quicktime"
+        case "mp4", "m4v": mime = "video/mp4"
+        default: mime = "video/unknown"
+        }
+        media.pending = PageMedia(url: resource.absoluteString, page: page.absoluteString,
+                                  tabID: current?.id ?? UUID(), title: String(title),
+                                  hls: extensionName == "m3u8", mime: mime)
     }
 
     static func addressURL(_ raw: String, engine: BrowserSearchEngine) -> URL? {
