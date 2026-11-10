@@ -1,51 +1,88 @@
-# Signing and release configuration
+# Release preparation — 1.0.0 (2)
 
-This project has not been submitted to Apple. It is not a guarantee of App Review approval.
+## Current status
 
-## Identifiers
+Build **1.0.0 (1)** was submitted to TestFlight and rejected under **Guideline 5.2.3 — Audio/Video Downloading**. The `fix/testflight-media-review` branch prepares **1.0.0 (2)** with the dedicated website-media acquisition paths removed and local-file media tools retained.
 
-The containing app defaults to com.tyh24647.DevTools. Child targets append:
+Build 2 has **not yet been signed or uploaded as part of this repair**. The Apple response in [APP-REVIEW-5.2.3.md](APP-REVIEW-5.2.3.md) is a draft; no review message has been sent. A source change or passing unsigned build does not establish App Review approval.
 
-- .Safari
-- .AddBlacklist
-- .AddAllowList
-- .Show
-- .Hide
-- .Enable
-- .Disable
+Current local checkpoints: 23 Node behavior tests, `npm run check`, and the local-media source-boundary check passed. Candidate browser execution, macOS Swift helper execution, and Xcode CI results are pending. See [TESTING.md](TESTING.md) for details and historical baselines.
 
-Every target needs the same registered App Group, group.com.tyh24647.DevTools, or the replacement chosen in Developer.xcconfig. Select a development team that supports App Groups. Provision all eight bundle identifiers and inspect the generated entitlements before archiving. A missing App Group produces a visible error rather than silently restoring run-everywhere defaults.
+## Version and identifiers
 
-If you change the main identifier, also update the product IDs in PurchaseStore.swift, the local StoreKit file, and the background script’s native application identifier. Safari ignores the native application identifier on iOS, but keeping these values consistent avoids future portability errors.
+`Configuration/Project.xcconfig` sets:
 
-## StoreKit
+```text
+MARKETING_VERSION = 1.0.0
+CURRENT_PROJECT_VERSION = 2
+DT_BUNDLE_PREFIX = com.tyh24647.DevTools
+DT_APP_GROUP = group.com.tyh24647.DevTools
+```
 
-Create the monthly auto-renewable subscription and lifetime non-consumable in App Store Connect with the IDs in README.md. Put the monthly product in a subscription group. Set the desired US base prices to $2.99/month and $19.99 lifetime; local tax and storefront pricing are controlled by Apple.
+The active scheme includes the containing app and these seven extension suffixes:
 
-Provide product names, descriptions, review screenshots and review notes. Verify purchase, cancellation, restore, pending approval, refund, expiry, and buying lifetime while a monthly subscription exists. The UI warns that lifetime does not cancel the existing subscription. The local StoreKit scheme is for development only and must not be mistaken for a real purchase.
+- `.Safari`
+- `.AddBlacklist`
+- `.AddAllowList`
+- `.Show`
+- `.Hide`
+- `.Enable`
+- `.Disable`
 
-The app caches verified entitlement results for extension use. Expiry is checked when Safari reads the snapshot; other entitlement changes are refreshed when the containing app receives StoreKit updates or returns to the foreground. No server-side subscription service is included.
+Set and verify the development team in Xcode for all eight targets. Register the shared App Group and provision every bundle identifier. Optional shared overrides belong in `Configuration/Developer.xcconfig`; target-level settings can override them, so inspect the effective build settings. Existing team identifiers do not supply signing credentials.
 
-## Advertising
+If changing the bundle prefix, reconcile the product IDs in `PurchaseStore.swift`, the local StoreKit configuration, and the native-application identifier used by the Safari extension. Preserve user data identifiers when preparing an update to an existing app.
 
-Replace the sample AdMob app ID and banner/interstitial/app-open unit IDs. Register the app with AdMob, configure applicable privacy messages in Privacy & Messaging, and verify the UMP flow with consent required, declined, unavailable and previously granted.
+## CI validation and artifacts
 
-Update the SKAdNetwork identifiers according to Google's current integration guide and any mediation partners you actually configure. The project includes Google’s primary identifier and no mediation setup. Respect the app’s final age rating and configure ad content rating in your account.
+[The iOS workflow](../.github/workflows/ios-build.yml) runs on pull requests, pushes to `main`, and manual dispatch. A push to the repair branch alone does not trigger a second automatic build. Obsolete runs for the same workflow/ref are canceled.
 
-The project uses non-personalized requests and does not request IDFA access. Review the SDK’s actual data collection and your configuration when completing App Store privacy disclosures. SDK manifests do not substitute for accurate App Store Connect answers. PrivacyInfo.xcprivacy describes this app’s own direct API/data use; the SDKs supply their own manifests.
+The Linux job installs the pinned npm dependencies and Chromium, runs the Node suite and structural/script checks, then executes both browser smoke suites. The macOS job uses the verified `xcode-27` runner and runs the actual local file/conversion/thumbnail helper tests before building:
 
-Publish a privacy policy on a URL you control and configure that URL in App Store Connect. The app already contains a readable privacy screen and a Google privacy link.
+1. **Debug / generic iOS Simulator**, including static analysis.
+2. **Release / generic iOS**, with signing disabled.
 
-Ads are only linked into the app target. Do not link the SDK into extension targets or inject ads into inspected webpages. Full-screen ads are closeable SDK formats and are scheduled at completed interactions, with timing and readiness guards.
+Both build commands explicitly select `DevTools.xcodeproj` and the `DevTools` scheme, with `CODE_SIGNING_ALLOWED=NO DEPLOYMENT_LOCATION=NO`. The legacy analyzer workflow remains manually runnable; automatic analysis is already included in the simulator build.
 
-## Executable updates
+| Artifact | Output | Purpose |
+| --- | --- | --- |
+| `DevTools-iOS-Simulator-Debug` | `Build/DevTools-iOS-Simulator.zip` | Simulator build product |
+| `DevTools-iOS-Device-Release-Unsigned` | `Build/DevTools-iOS-Device-Release-Unsigned.zip` | Release/device compilation product; not an installable IPA |
+| `DevTools-Xcode-Logs` | `Build/Logs/` | Full build logs, retained even when a build fails |
 
-Archive the Release configuration. It does not define DEVTOOLS_REMOTE_UPDATES. It only executes packaged JavaScript and reports available npm versions for the next app release.
+Artifacts are retained for 14 days. The workflow has no certificate installation, provisioning setup, signed export, or App Store Connect upload step. Consult the run for the exact commit before reporting a gate as passed.
 
-The personal-development Debug path for downloaded package execution is explicit in source and in the Packages UI. Do not claim unrestricted remote feature updates are approved for App Store distribution. Review Apple’s downloaded-code rules and discuss your actual distribution model with App Review if needed.
+On a Mac with the iOS 27 SDK, reproduce the native checks with:
 
-## Device checks still required
+```bash
+python3 Scripts/test-downloads.py
+DEVTOOLS_ANALYZE=1 bash Scripts/build-ios.sh
+bash Scripts/build-release.sh
+```
 
-Build and run on a physical iPhone. Test the extension from Safari, including private browsing permissions where applicable, all six share actions, background/foreground cycles, popup sender authorization, website permission revocation, strict CSP, Vue production/development pages, and cross-origin frames. Also test iPad layout if distributing as a universal app.
+## Prepare the signed submission
 
-Use Product → Archive after these checks. This deliverable contains no signing certificate, provisioning profile, production ad identifiers or App Store Connect credentials.
+1. Complete the physical-device acceptance run in [TESTING.md](TESTING.md), including the Safari extension and local Files/Photos workflows.
+2. Confirm the app and extensions resolve to version 1.0.0, build 2, and the intended team/App Group. If build 2 has already been uploaded by the time this procedure is used, select a new build number.
+3. Select the **DevTools** scheme and a generic iOS device destination in Xcode. Its Archive action uses **Release**.
+4. Use **Product → Archive**. Inspect the resulting app archive, included extensions, effective entitlements, and bundled resources. Check that the removed acquisition resources and FFmpeg frameworks are absent.
+5. Use Organizer's distribution flow for **App Store Connect** with the appropriate account/signing configuration. Validate the archive and upload it.
+6. After Apple finishes processing, select the actual new build in TestFlight. Update the beta description and testing notes to describe browser debugging, generic scripts, and local-file media tools. Review and adapt the draft 5.2.3 response to the verified build before sending it.
+
+No completed step above should be inferred from the presence of this document. Record the archive/build identifier and resulting App Store Connect status when performed.
+
+## Bundled packages and generic scripts
+
+Release does not define `DEVTOOLS_REMOTE_UPDATES`. The bundled-tool updater may check npm/jsDelivr version metadata, but it does not replace the packaged developer-tool code in Release. This restriction is specific to that updater.
+
+The separate **Plugins** feature remains available in Release: local JavaScript import, user-entered script URL import into an editor, source review/editing, and explicit enablement. Describe it accurately in review notes. Do not characterize the app as executing only bundled JavaScript, and do not characterize generic script support as approval for an otherwise rejected media feature.
+
+## Purchases, privacy, and metadata
+
+The app is ad-free; there is no AdMob account or consent-flow setup for this release. Keep screenshots and descriptions consistent with the current features and remove prior website-media downloading/recording claims.
+
+StoreKit products remain `com.tyh24647.DevTools.pro.monthly` and `com.tyh24647.DevTools.pro.lifetime`. The local test configuration uses $2.99/month and $19.99 lifetime; production availability and localized prices come from App Store Connect. Test purchase, cancellation, restore, pending transactions, expiry/refund, and the warning that lifetime does not cancel an existing subscription. A StoreKit configuration file is not proof that production products are configured.
+
+Review the actual Files, Photos, website permission, package-check, and user-script behavior when completing privacy disclosures. Use a working privacy-policy/support URL and verify the in-app privacy screen. Photos usage descriptions must describe exports of user-selected local files. Provide App Review with any information needed to exercise optional purchases and the retained features; do not claim a demo account or entitlement exists unless it has been configured.
+
+References: [Apple's App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/), [complete review information](https://developer.apple.com/help/app-review/before-submitting-for-review/complete-review), and [replying to App Review](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/reply-to-app-review-messages).

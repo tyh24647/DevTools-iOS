@@ -125,7 +125,7 @@ struct PackagesView: View {
             } footer: {
                 Text(PackageCache.remoteAssetsAllowed
                      ? "Checks at every app foreground. New package files are downloaded from version-pinned jsDelivr URLs and checked against their SHA-256 metadata. Safari uses bundled files if a cached update cannot run under the page’s security policy."
-                     : "This Release build checks for updates but executes only bundled packages. New executable versions arrive through signed app updates. iOS does not run npm; npm is used to prepare the Xcode project.")
+                     : "Developer-tool package updates arrive through app updates. You can import and manage your own scripts in Plugins.")
             }
             Section("Bundled and cached versions") {
                 ForEach(updater.catalog?.assets ?? []) { asset in

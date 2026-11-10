@@ -37,6 +37,7 @@ compile_commands.json
 
 # Project-local generated files and dependencies
 node_modules/
+__pycache__/
 Configuration/Developer.xcconfig
 
 # macOS and local credentials

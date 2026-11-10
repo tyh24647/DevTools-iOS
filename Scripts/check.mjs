@@ -31,7 +31,6 @@ const read = async (file) => fs.readFile(path.join(browserResources, file), "utf
 let bootstrap = await read("native-bootstrap.js");
 const rules = await read("rule-engine.js");
 const embedded = [
-    ["__MSE__", await read("mse-capture.js")],
     ["__RULES__", rules],
     ["__USER_SCRIPTS__", await read("userscripts.js")],
     ["__RUNTIME__", await read("page-runtime.js")],
@@ -40,7 +39,6 @@ const embedded = [
         read("vendor/" + id + ".js")
     ))).join("\n") + await read("resource-timing.js") + await read("console-ui.js")],
     ["__SOURCE_FORMAT__", await read("source-formatting.js")],
-    ["__MEDIA__", await read("media-resources.js")],
     ["__CONFIG__", JSON.stringify({enabled:true,runEverywhere:true,lists:[],plugins:[],console:{}})]
 ];
 for (const [token, source] of embedded) {

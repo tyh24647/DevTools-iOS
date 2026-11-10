@@ -89,7 +89,7 @@ for target in targets:
         assert extension['NSExtensionPointIdentifier'] == 'com.apple.ui-services'
         assert extension['NSExtensionAttributes']['NSExtensionJavaScriptPreprocessingFile'] == 'Action'
 
-# Native media sources and frameworks are exclusive to the containing apps.
+# Local media, browser and script management belong to the containing app.
 for target in targets:
     is_app = target.get('productType') == 'com.apple.product-type.application'
     for dependency_id in target.get('dependencies', []):
@@ -102,13 +102,46 @@ for target in targets:
         if phase['isa'] == 'PBXSourcesBuildPhase':
             native += [objects[objects[build]['fileRef']]['path'] for build in phase['files'] if objects[objects[build]['fileRef']]['path'].startswith(('Media/', 'Browser/', 'Plugins/'))]
     assert bool(native) == is_app
-    ffmpeg = [objects[key]['productName'] for key in target.get('packageProductDependencies', []) if objects[key]['productName'] == 'AetherFFmpegBuild']
-    assert bool(ffmpeg) == is_app
+    assert not any(objects[key].get('productName') == 'AetherFFmpegBuild'
+                   for key in target.get('packageProductDependencies', []))
     if is_app:
         embed = [objects[key] for key in target['buildPhases'] if objects[key]['isa'] == 'PBXCopyFilesBuildPhase']
         assert any(len(phase['files']) == 7 and embeds_extensions(phase) for phase in embed)
         for key in objects[target['buildConfigurationList']]['buildConfigurations']:
-            assert objects[key]['buildSettings']['SWIFT_OBJC_BRIDGING_HEADER'] == 'Configuration/DevTools-Bridging-Header.h'
+            settings = objects[key]['buildSettings']
+            assert 'SWIFT_OBJC_BRIDGING_HEADER' not in settings
+            assert settings['SKIP_INSTALL'] == 'NO'
+            assert settings['INSTALL_PATH'] == '/Applications'
+
+# The review candidate must not ship the former web-media acquisition pipeline.
+removed_resources = {
+    'BrowserResources/media-discovery.js',
+    'BrowserResources/media-resources.js',
+    'BrowserResources/mse-capture.js',
+    'BrowserResources/native-bridge.js',
+    'SafariExtension/Resources/media-handoff.js',
+    'Media/HLSPlaylist.swift',
+    'Media/HLSRecorder.swift',
+    'Media/MediaRemux.c',
+    'Media/MediaRemux.h',
+    'DTMediaRemux.h',
+}
+assert not any((root / path).exists() for path in removed_resources), 'Obsolete acquisition source remains.'
+assert not any(obj.get('path') in removed_resources for obj in objects.values())
+assert not any('FFmpegBuild' in obj.get('repositoryURL', '') for obj in objects.values())
+bootstrap = (root / 'BrowserResources/native-bootstrap.js').read_text()
+controller = (root / 'Browser/BrowserController.swift').read_text()
+for token in ('devtoolsMedia', '__devtoolsNativeSave', '__MEDIA_DISCOVERY__', '__MSE_CAPTURE__'):
+    assert token not in bootstrap and token not in controller, 'Native media bridge remains: ' + token
+app_plist = plistlib.loads((root / 'Configuration/App-Info.plist').read_bytes())
+schemes = [scheme for item in app_plist.get('CFBundleURLTypes', []) for scheme in item.get('CFBundleURLSchemes', [])]
+assert 'devtools' not in schemes, 'Removed media acquisition deep links must not be registered.'
+assert 'NSPhotoLibraryUsageDescription' not in app_plist
+assert app_plist['NSPhotoLibraryAddUsageDescription']
+
+xcconfig = (root / 'Configuration/Project.xcconfig').read_text()
+version = re.search(r'^MARKETING_VERSION\s*=\s*(\S+)', xcconfig, re.M).group(1)
+build = re.search(r'^CURRENT_PROJECT_VERSION\s*=\s*(\d+)', xcconfig, re.M).group(1)
 
 for configuration_name in ('Debug', 'Release'):
     bundle_ids = []
@@ -118,6 +151,13 @@ for configuration_name in ('Debug', 'Release'):
         assert settings.get('SUPPORTS_MACCATALYST', 'NO') == 'NO'
         assert settings.get('SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD', 'NO') == 'NO'
         assert 'macosx' not in settings.get('SUPPORTED_PLATFORMS', '')
+        assert str(settings.get('MARKETING_VERSION', version)) == version
+        assert str(settings.get('CURRENT_PROJECT_VERSION', build)) == build
+        plist = plistlib.loads((root / settings['INFOPLIST_FILE']).read_bytes())
+        assert plist['CFBundleShortVersionString'] == '$(MARKETING_VERSION)'
+        assert plist['CFBundleVersion'] == '$(CURRENT_PROJECT_VERSION)'
+        if target.get('productType') != 'com.apple.product-type.application':
+            assert settings['SKIP_INSTALL'] == 'YES'
         bundle_ids.append(settings['PRODUCT_BUNDLE_IDENTIFIER'])
     assert len(bundle_ids) == len(set(bundle_ids)), 'Duplicate iOS bundle identifiers.'
 
@@ -130,4 +170,4 @@ assert storekit['products'][0]['displayPrice'] == '19.99'
 assert storekit['subscriptionGroups'][0]['subscriptions'][0]['displayPrice'] == '2.99'
 catalog = json.loads((root / 'Shared/tool-catalog.json').read_text())
 assert len(catalog['assets']) == 10
-print('Validated 8 targets, 7 embedded extensions, shared entitlements, resources, plists and test pricing.')
+print('Validated 8 targets, 7 embedded extensions, local-media boundary, matching versions, plists and test pricing.')

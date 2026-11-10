@@ -1,4 +1,4 @@
-name: iOS simulator build
+name: iOS builds
 
 on:
   push:
@@ -6,16 +6,66 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    runs-on: xcode-27
+  browser-tests:
+    name: Browser debugger regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Build and package DevTools
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      - run: npm run check
+      - run: npm run test:browser
+      - run: npm run test:native-browser
+  build:
+    name: Simulator analysis and unsigned Release build
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test local file and media helpers
+        shell: bash
+        run: |
+          mkdir -p Build/Logs
+          python3 Scripts/test-downloads.py 2>&1 | tee Build/Logs/local-media-tests.log
+      - name: Build, analyze, and package simulator app
+        env:
+          DEVTOOLS_ANALYZE: "1"
         run: bash Scripts/build-ios.sh
       - name: Upload simulator app
         uses: actions/upload-artifact@v4
         with:
-          name: DevTools-iOS-Simulator
+          name: DevTools-iOS-Simulator-Debug
           path: Build/DevTools-iOS-Simulator.zip
           if-no-files-found: error
+          retention-days: 14
+      - name: Build and package unsigned Release device app
+        run: bash Scripts/build-release.sh
+      - name: Upload unsigned Release device app
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevTools-iOS-Device-Release-Unsigned
+          path: Build/DevTools-iOS-Device-Release-Unsigned.zip
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Xcode logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevTools-Xcode-Logs
+          path: Build/Logs/
+          if-no-files-found: warn
+          retention-days: 14
