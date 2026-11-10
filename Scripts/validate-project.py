@@ -112,6 +112,7 @@ for target in targets:
             assert 'SWIFT_OBJC_BRIDGING_HEADER' not in settings
             assert settings['SKIP_INSTALL'] == 'NO'
             assert settings['INSTALL_PATH'] == '/Applications'
+            assert settings.get('DEPLOYMENT_LOCATION') != 'NO', 'Let the Archive action install the app into its archive.'
 
 # The review candidate must not ship the former web-media acquisition pipeline.
 removed_resources = {

@@ -59,4 +59,4 @@ bash Scripts/build-release.sh
 
 These commands produce a Debug simulator ZIP and an unsigned Release device ZIP. Neither establishes a signed TestFlight upload. Full logs are written under `Build/Logs/`.
 
-The current source checks have passed; candidate CI and physical-device testing are pending. See [TESTING.md](Documentation/TESTING.md) for the exact distinction between source checks, historical results, and current execution gates, and [RELEASE.md](Documentation/RELEASE.md) for signing and upload preparation.
+Verified 2026-11-10: code commit `72b32b8bdc0d7c19d89183c7043c8f8379fd83e2` passed [CI run 42881231065](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065), including 11 Swift helper tests, both browser smoke suites, the Debug simulator build/analysis, and unsigned Release device compilation. The two ZIPs were inspected for versions, extensions, retained scripts, and removed resources. This confirms packaged contents; simulator UI launch, device/Photos-permission behavior, signing, upload, and approval remain unverified or pending. See [TESTING.md](Documentation/TESTING.md) and [RELEASE.md](Documentation/RELEASE.md).

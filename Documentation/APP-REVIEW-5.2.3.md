@@ -10,9 +10,17 @@ The retrieved message did not identify a particular website/provider or reproduc
 
 Apple's [5.2.3 guideline](https://developer.apple.com/app-store/review/guidelines/#intellectual-property) requires authorization for the covered third-party media use; its [review-information guidance](https://developer.apple.com/help/app-review/before-submitting-for-review/complete-review) describes evidence of rights/permission. The repair changes the app's supplied functionality. It does not rely on a user checkbox or on moving the same supplied downloader to a separate script.
 
+## Observed TestFlight metadata
+
+A read-only App Store Connect check during this repair found that build 1's **What to Test** still asks testers to detect video/HLS streams they have permission to download and open saved media in **Downloads**. Those instructions describe the removed functionality and need replacement for build 2.
+
+The app-level **Beta App Description** currently reads “Test build of the iOS DevTools Browser + Safari Extension + Media toolkit”. **Review Notes** is empty, and sign-in is marked as not required. No fields were changed and no review message was sent.
+
 ## Candidate changes
 
 **Target: version 1.0.0, build 2.** Signing, upload, device verification, and App Review approval are pending. No message in this document has been sent.
+
+Verified **2026-11-10**: code commit `72b32b8bdc0d7c19d89183c7043c8f8379fd83e2` passed [CI run 42881231065](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065), including browser/Swift tests, simulator build/static analysis, and unsigned Release device compilation. Both packaged products were inspected; this does not establish simulator UI launch, device behavior, or Photos-permission handling. See [TESTING.md](TESTING.md) for the exact scope.
 
 Removed from the candidate's active app/extension paths:
 
@@ -52,6 +60,36 @@ The review steps below identify the retained browser, script, and local-file fea
 Thank you.
 ```
 
+## Draft build 2 What to Test
+
+**Draft only; not saved to App Store Connect. Confirm the signed build and tap paths before using.**
+
+```text
+DevTools 1.0.0 (2) removes the built-in website-media downloading and recording features. Please test the retained browser debugging, generic scripts, and local-file tools:
+
+1. Browser: open https://example.com, open the Page and developer tools menu beside the address field, and choose Show console. Check navigation and the Eruda console/inspection tools.
+
+2. Safari extension: enable DevTools in Safari's extension settings, grant access to your test site, and check the console and extension controls.
+
+3. Plugins: create a New userscript, review its source, and save it. Confirm it starts disabled, then enable it and reload the matching page in the in-app browser. Also test Import local JavaScript and Import JavaScript URL > Read for review. Imported code should open in the editor and require explicit enablement; changing its source should disable it again.
+
+4. Media files: choose Import from Files and select a small audio/video/image file you created. Check supported playback/preview, folders, Rename, Move, Share, and Delete.
+
+5. Long-press a supported audio/video file, choose Convert a copy, select the container, video codec, and destination folder, then Convert. Check the output and confirm the original is preserved. Report unsupported-format errors or conversion failures.
+
+6. Long-press a supported image/video and choose Save to Photos. Check both allowing and declining Photos access.
+
+No app sign-in is required for these flows. Please include your device, iOS version, reproduction steps, and any error message in feedback.
+```
+
+## Optional draft Beta App Description
+
+**Draft only; not saved to App Store Connect.**
+
+```text
+DevTools combines an in-app browser and Safari extension for web debugging with Eruda and page inspection tools. In the app, review, import, and explicitly enable your own JavaScript scripts and Eruda panels. Import documents through Files for supported local media playback, organization, conversion to a separate copy, sharing, and image/video export to Photos.
+```
+
 ## Draft reviewer tap paths
 
 These labels were checked against the candidate source. The sequence still requires verification on the signed build before submission. No user account is implemented for these core flows; website accounts, if needed for a chosen site, are separate.
@@ -86,6 +124,6 @@ Prepare a small video or image created by the tester in Files; this document doe
 
 ## Submission evidence to record
 
-Record the final commit, successful CI run, signed archive version/build, physical-device/OS checks, and App Store Connect processing/review status. Attach a screen recording only after it has actually been captured from that build. Update the beta description and screenshots if they still advertise website-media acquisition.
+The tested code commit and successful CI run are recorded above; [RELEASE.md](RELEASE.md) links the inspected unsigned artifacts. Still record the signed archive version/build, physical-device/OS checks, and App Store Connect processing/review status when completed. Attach a screen recording only after it has actually been captured from that build. Replace the old download-oriented testing instructions with the build 2 draft above when preparing the new build, and check the beta description and screenshots against the actual candidate.
 
 Implementation references: [browser controller](../Browser/BrowserController.swift), [Safari injection](../SafariExtension/Resources/background.js), [script import UI](../Plugins/PluginsView.swift), [script enablement](../Plugins/PluginLibrary.swift), [local media UI](../Media/DownloadsView.swift), [local exporter](../Media/MediaExporter.swift), and [validation record](TESTING.md).

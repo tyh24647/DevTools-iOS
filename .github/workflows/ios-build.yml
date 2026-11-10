@@ -52,13 +52,20 @@ jobs:
           path: Build/DevTools-iOS-Simulator.zip
           if-no-files-found: error
           retention-days: 14
-      - name: Build and package unsigned Release device app
+      - name: Archive and package unsigned Release device app
         run: bash Scripts/build-release.sh
       - name: Upload unsigned Release device app
         uses: actions/upload-artifact@v4
         with:
           name: DevTools-iOS-Device-Release-Unsigned
           path: Build/DevTools-iOS-Device-Release-Unsigned.zip
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload unsigned Xcode archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevTools-iOS-Xcode-Archive-Unsigned
+          path: Build/DevTools-Unsigned.xcarchive.zip
           if-no-files-found: error
           retention-days: 14
       - name: Upload Xcode logs

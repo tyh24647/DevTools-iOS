@@ -2,7 +2,7 @@
 
 ## Current repair checkpoints
 
-The following checkpoints were reported from the repair workspace before publication of the candidate branch. They are source/test results, not evidence of a signed or installed iOS build.
+Verified **2026-11-10** for code commit **`72b32b8bdc0d7c19d89183c7043c8f8379fd83e2`**: [CI run 42881231065](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065) completed successfully. These results apply to that code commit; the subsequent documentation update does not change the tested implementation.
 
 | Check | Current result |
 | --- | --- |
@@ -10,13 +10,16 @@ The following checkpoints were reported from the repair workspace before publica
 | `npm run check` | Passed, including script/resource/project validation |
 | `python3 Scripts/test-downloads.py --check-source` | Local-media boundary checks passed |
 | Build scripts and workflow files | Bash syntax, YAML parsing, and whitespace checks passed |
-| Chromium browser smoke suites | Attempted locally; Chromium exited before page creation because the host denied a socket operation (`EPERM`). No browser assertions ran in that attempt |
-| Full macOS Swift file/conversion/thumbnail tests | Pending candidate CI |
-| Debug simulator build/static analysis | Pending candidate CI |
-| Unsigned Release device build | Pending candidate CI |
-| Signed archive, physical-device run, TestFlight upload | Not completed as part of this repair |
+| Chromium browser integration | Six scenarios passed with no uncaught errors |
+| Native-browser bootstrap smoke | User scripts, debugger, source formatting, and absence of acquisition hooks passed |
+| Full macOS Swift file/conversion/thumbnail tests | 11 tests passed |
+| Debug simulator build/static analysis | `BUILD SUCCEEDED` and `ANALYZE SUCCEEDED` |
+| Unsigned Release device build | `BUILD SUCCEEDED` |
+| Simulator and Release ZIP inspection | All eight bundles are 1.0.0 (2); seven extensions have the expected IDs; generic script runtime matches the code commit; removed acquisition JavaScript, FFmpeg, and media URL scheme are absent |
+| Simulator UI launch, physical-device/Photos-permission checks | Not performed |
+| Signed archive, TestFlight upload, App Review approval | Pending |
 
-Update this record with the exact candidate commit/run when results are available. A configured workflow is not a completed check.
+The inspected Debug simulator product uses the iOS Simulator 27.1 SDK and includes arm64 and x86_64 architectures. The Release product uses the iPhoneOS 27.1 SDK and contains no code-signature directory, provisioning profile, or debug dylibs. Inspection confirms packaged contents, not launch or device behavior. [RELEASE.md](RELEASE.md) links the inspected artifacts, which expire on 2026-11-24.
 
 ## Historical baselines
 

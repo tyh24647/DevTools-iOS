@@ -6,7 +6,7 @@ Build **1.0.0 (1)** was submitted to TestFlight and rejected under **Guideline 5
 
 Build 2 has **not yet been signed or uploaded as part of this repair**. The Apple response in [APP-REVIEW-5.2.3.md](APP-REVIEW-5.2.3.md) is a draft; no review message has been sent. A source change or passing unsigned build does not establish App Review approval.
 
-Current local checkpoints: 23 Node behavior tests, `npm run check`, and the local-media source-boundary check passed. Candidate browser execution, macOS Swift helper execution, and Xcode CI results are pending. See [TESTING.md](TESTING.md) for details and historical baselines.
+Verified **2026-11-10**: code commit **`72b32b8bdc0d7c19d89183c7043c8f8379fd83e2`** passed [CI run 42881231065](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065): 23 Node checks, structural/script checks, six browser integration scenarios, the native-browser bootstrap smoke suite, 11 Swift helper tests, the Debug simulator build/static analysis, and unsigned Release device compilation. Both ZIPs were inspected; neither app UI launch nor physical-device/Photos-permission behavior was tested. See [TESTING.md](TESTING.md) for the evidence and limits.
 
 ## Version and identifiers
 
@@ -46,11 +46,13 @@ Both build commands explicitly select `DevTools.xcodeproj` and the `DevTools` sc
 
 | Artifact | Output | Purpose |
 | --- | --- | --- |
-| `DevTools-iOS-Simulator-Debug` | `Build/DevTools-iOS-Simulator.zip` | Simulator build product |
-| `DevTools-iOS-Device-Release-Unsigned` | `Build/DevTools-iOS-Device-Release-Unsigned.zip` | Release/device compilation product; not an installable IPA |
-| `DevTools-Xcode-Logs` | `Build/Logs/` | Full build logs, retained even when a build fails |
+| [DevTools-iOS-Simulator-Debug](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065/artifacts/13793188706) | `Build/DevTools-iOS-Simulator.zip` | Simulator build product |
+| [DevTools-iOS-Device-Release-Unsigned](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065/artifacts/13793224859) | `Build/DevTools-iOS-Device-Release-Unsigned.zip` | Release/device compilation product; not an installable IPA |
+| [DevTools-Xcode-Logs](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065/artifacts/13794771922) | `Build/Logs/` | Full build logs, retained even when a build fails |
 
-Artifacts are retained for 14 days. The workflow has no certificate installation, provisioning setup, signed export, or App Store Connect upload step. Consult the run for the exact commit before reporting a gate as passed.
+These run artifacts expire **2026-11-24** under the 14-day retention policy. Inspection confirmed all eight bundles are 1.0.0 (2), the seven extension IDs are correct, the generic script runtime matches the tested commit, and removed acquisition JavaScript, FFmpeg, and the media URL scheme are absent. The Debug simulator product uses SDK 27.1 with arm64/x86_64; the Release device product uses iPhoneOS SDK 27.1 and has no code-signature directory, provisioning profile, or debug dylibs.
+
+The GitHub workflow has no certificate installation, provisioning setup, signed export, or App Store Connect upload step. A read-only check of App Store Connect's Xcode Cloud page showed **Get started in Xcode** onboarding with no product or workflow listed. Signing and upload remain outstanding.
 
 On a Mac with the iOS 27 SDK, reproduce the native checks with:
 
