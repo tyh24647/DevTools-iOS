@@ -15,8 +15,8 @@ struct UpdateStatus: Codable {
     var installed: [String: CachedTool] = [:]
 }
 
-/// All remote code is excluded from the Release execution path. Debug supports the requested
-/// automatic package installation for personal development, with an immutable bundled fallback.
+/// Release uses bundled developer-tool packages. Debug can install package updates
+/// with a bundled fallback. User-managed scripts use the separate plug-in library.
 @MainActor enum PackageCache {
     static var remoteAssetsAllowed: Bool {
         #if DEVTOOLS_REMOTE_UPDATES

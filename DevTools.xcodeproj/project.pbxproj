@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0A1B2C3D4E5F60718293A4B5 /* SafariExtension/Resources/media-handoff.js in Resources */ = {isa = PBXBuildFile; fileRef = 0A1B2C3D4E5F60718293A4B6 /* SafariExtension/Resources/media-handoff.js */; };
 		0F573151246E7C8329B7E808 /* Browser/BrowserViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CACCB834216F58970EEAA90 /* Browser/BrowserViews.swift */; };
 		14478CCA08CD754E1258F071 /* Shared/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9D47D2852C4D87F048C06374 /* Shared/PrivacyInfo.xcprivacy */; };
 		1A06751F3072B6C100572786 /* ProView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A06751A3072B6C100572786 /* ProView.swift */; };
@@ -58,7 +57,6 @@
 		6AD7590C3C1A17DB1DF8D7D7 /* Shared/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9D47D2852C4D87F048C06374 /* Shared/PrivacyInfo.xcprivacy */; };
 		6B2B7BC7FE880532F9BD9AE4 /* Shared/SharedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5399B7D0B17BF2F627D0F784 /* Shared/SharedStore.swift */; };
 		6FF8A31407A7F0B04B6CE98A /* SafariExtension/Resources/rule-worker.js in Resources */ = {isa = PBXBuildFile; fileRef = 7E8DFAFE3ED5ED553A82EF24 /* SafariExtension/Resources/rule-worker.js */; };
-		71C5D38AC5CF1F274CD12718 /* Media/MediaRemux.c in Sources */ = {isa = PBXBuildFile; fileRef = 31497D36B6950E6DDA287A99 /* Media/MediaRemux.c */; };
 		72419ACD12FE28FD89BDBD76 /* DevToolsShow.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 17C4D2E69FF03D296F58DC59 /* DevToolsShow.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		73DC8E11CC2325DE7639AED3 /* ActionExtension/ActionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07DFAE14CE64F38AAB74472 /* ActionExtension/ActionViewController.swift */; };
 		7BD92BAD2B98950C3E15A91C /* Shared/RuleValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188B4A9726ADA8894A632F1E /* Shared/RuleValidator.swift */; };
@@ -85,12 +83,10 @@
 		C5322B261F640C17F04F2D76 /* DevToolsAddBlacklist.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 2ABFFE0F1DFB65574A68A5A6 /* DevToolsAddBlacklist.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C5FC390B4B7DAD02AD90084F /* ActionExtension/ActionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07DFAE14CE64F38AAB74472 /* ActionExtension/ActionViewController.swift */; };
 		C800E3B8E8D7C96B8F613AB6 /* SafariExtension/Resources/vendor in Resources */ = {isa = PBXBuildFile; fileRef = FB621F852028399F1E3F0F3F /* SafariExtension/Resources/vendor */; };
-		C821058E7A74F5A444E888FE /* Media/HLSRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0312F713872860E6DAC9B13 /* Media/HLSRecorder.swift */; };
 		CB5C3650E4DE9029D87650D3 /* Media/MediaHTTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06512E4C80F7A3390FED4D1 /* Media/MediaHTTP.swift */; };
 		D07F981959D2BE08F79A60FF /* ActionExtension/Action.js in Resources */ = {isa = PBXBuildFile; fileRef = A7F461A67EEBFA71DF89D94F /* ActionExtension/Action.js */; };
 		D181530AE42DF15297C3E54F /* ActionExtension/ActionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07DFAE14CE64F38AAB74472 /* ActionExtension/ActionViewController.swift */; };
 		D1EE5158F2F15EA7191E259C /* Shared/SharedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5399B7D0B17BF2F627D0F784 /* Shared/SharedStore.swift */; };
-		D60AB4E36F7E2ABAE6EF50C1 /* Licenses/FFmpegBuild in Resources */ = {isa = PBXBuildFile; fileRef = 5DC7FBC60BE7761899C7D7EB /* Licenses/FFmpegBuild */; };
 		D61D6F6E2442F611D5E10DD8 /* Shared/PackageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBE479B4A981C348AE5ACC2F /* Shared/PackageCache.swift */; };
 		D6C4B7B3EC2EE8E0FD9F3834 /* Media/MediaLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFB74808CD90D30B9B820289 /* Media/MediaLibrary.swift */; };
 		D78E0F143439D4247629708C /* SafariExtension/Resources/page-runtime.js in Resources */ = {isa = PBXBuildFile; fileRef = F95D5C5758461302D2CA6B17 /* SafariExtension/Resources/page-runtime.js */; };
@@ -99,13 +95,11 @@
 		E1F4C8669573C0442AA705FD /* Shared/Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 644032F41F2325C223F95B82 /* Shared/Models.swift */; };
 		E6AA1D9A88D79FCD793BC1CA /* Shared/tool-catalog.json in Resources */ = {isa = PBXBuildFile; fileRef = 8B8ED5325D95F4488614DB1B /* Shared/tool-catalog.json */; };
 		E731603068E8D662572D293A /* Shared/RuleValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188B4A9726ADA8894A632F1E /* Shared/RuleValidator.swift */; };
-		EA97DF1CEE3C572B85E196A6 /* AetherFFmpegBuild in Frameworks */ = {isa = PBXBuildFile; productRef = 657CCF97A76470F490B86F8D /* AetherFFmpegBuild */; };
 		EB3909194E766D7F0AFB63EC /* BrowserResources in Resources */ = {isa = PBXBuildFile; fileRef = 461908DA7C88718D431CD87F /* BrowserResources */; };
 		EE2218FA0E80A461404F7CD8 /* Shared/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9D47D2852C4D87F048C06374 /* Shared/PrivacyInfo.xcprivacy */; };
 		EF70980B9D36E69F8F9EC5CB /* SafariExtension/Resources/background.js in Resources */ = {isa = PBXBuildFile; fileRef = D08BDF0830F8610E16835CE7 /* SafariExtension/Resources/background.js */; };
 		F23C5232CA2D3A71DDCB602A /* ActionExtension/ActionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07DFAE14CE64F38AAB74472 /* ActionExtension/ActionViewController.swift */; };
 		F753C9BE91A6BBDABF437011 /* Browser/BrowserController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 966E69FA5BD3D8826AAB3206 /* Browser/BrowserController.swift */; };
-		FE5714B005F89901373EE336 /* Media/HLSPlaylist.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A71E1AF2BA946512AB8BB2 /* Media/HLSPlaylist.swift */; };
 		FFA5AE1C8B5BDFF85DDF1F1A /* Shared/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 9D47D2852C4D87F048C06374 /* Shared/PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
@@ -181,7 +175,6 @@
 
 /* Begin PBXFileReference section */
 		062E4DB1D8AB23DD5FEEFB9C /* Media/DownloadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Media/DownloadsView.swift; sourceTree = "<group>"; };
-		0A1B2C3D4E5F60718293A4B6 /* SafariExtension/Resources/media-handoff.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "SafariExtension/Resources/media-handoff.js"; sourceTree = "<group>"; };
 		0BC5C2A24655FC493A716A38 /* DevToolsDisable.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DevToolsDisable.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		0FD47DE585D9BDAC5FCA7873 /* Media/MediaExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Media/MediaExporter.swift; sourceTree = "<group>"; };
 		17C4D2E69FF03D296F58DC59 /* DevToolsShow.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DevToolsShow.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -202,16 +195,13 @@
 		1A8F7BB030731A3D00A947F2 /* AdManager 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AdManager 2.swift"; sourceTree = "<group>"; };
 		1F2EA5DF34E491C4BF7191DE /* Configuration/Shared.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Configuration/Shared.entitlements; sourceTree = "<group>"; };
 		2A2CFB10306FA3F400AB0C2F /* AdsFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsFeature.swift; sourceTree = "<group>"; };
-		2ABDA26A3093F7E600C1BF0B /* DTMediaRemux.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DTMediaRemux.h; sourceTree = "<group>"; };
 		2ABFFE0F1DFB65574A68A5A6 /* DevToolsAddBlacklist.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DevToolsAddBlacklist.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		31497D36B6950E6DDA287A99 /* Media/MediaRemux.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = Media/MediaRemux.c; sourceTree = "<group>"; };
 		3E0FA95D8D056CEEC98B2D8C /* DevTools.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DevTools.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		461908DA7C88718D431CD87F /* BrowserResources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BrowserResources; sourceTree = "<group>"; };
 		4E8094FB0A52C529ACEBC74A /* SafariExtension/Resources/content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = SafariExtension/Resources/content.js; sourceTree = "<group>"; };
 		4EF2F1683A3A38681926B73C /* SafariExtension/Resources/rule-engine.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "SafariExtension/Resources/rule-engine.js"; sourceTree = "<group>"; };
 		5399B7D0B17BF2F627D0F784 /* Shared/SharedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/SharedStore.swift; sourceTree = "<group>"; };
 		5500C63D4B0B0A98B2C922C1 /* Configuration/Show-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Configuration/Show-Info.plist"; sourceTree = "<group>"; };
-		5DC7FBC60BE7761899C7D7EB /* Licenses/FFmpegBuild */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Licenses/FFmpegBuild; sourceTree = "<group>"; };
 		600E4EF01CCFF6521887A554 /* Plugins/PluginLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Plugins/PluginLibrary.swift; sourceTree = "<group>"; };
 		635398CEA82E587738C99704 /* Plugins/PluginsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Plugins/PluginsView.swift; sourceTree = "<group>"; };
 		644032F41F2325C223F95B82 /* Shared/Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/Models.swift; sourceTree = "<group>"; };
@@ -233,7 +223,6 @@
 		966E69FA5BD3D8826AAB3206 /* Browser/BrowserController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Browser/BrowserController.swift; sourceTree = "<group>"; };
 		9D47D2852C4D87F048C06374 /* Shared/PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Shared/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		9E33B228498F938E25440F5E /* Configuration/Hide-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Configuration/Hide-Info.plist"; sourceTree = "<group>"; };
-		A0312F713872860E6DAC9B13 /* Media/HLSRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Media/HLSRecorder.swift; sourceTree = "<group>"; };
 		A7F461A67EEBFA71DF89D94F /* ActionExtension/Action.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = ActionExtension/Action.js; sourceTree = "<group>"; };
 		AA4ACA445B3FBAF47CDE31AC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.md; sourceTree = "<group>"; };
 		AB1968ECBE82CECAE6CE68A8 /* SafariExtension/Resources/icons */ = {isa = PBXFileReference; lastKnownFileType = folder; path = SafariExtension/Resources/icons; sourceTree = "<group>"; };
@@ -244,7 +233,6 @@
 		C06512E4C80F7A3390FED4D1 /* Media/MediaHTTP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Media/MediaHTTP.swift; sourceTree = "<group>"; };
 		C07DFAE14CE64F38AAB74472 /* ActionExtension/ActionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionExtension/ActionViewController.swift; sourceTree = "<group>"; };
 		C08934F486E0A29569E72182 /* SafariExtension/Resources/manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SafariExtension/Resources/manifest.json; sourceTree = "<group>"; };
-		C0A71E1AF2BA946512AB8BB2 /* Media/HLSPlaylist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Media/HLSPlaylist.swift; sourceTree = "<group>"; };
 		CC0A984932F5B0B7F37A2156 /* SafariExtension/SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariExtension/SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		D08BDF0830F8610E16835CE7 /* SafariExtension/Resources/background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = SafariExtension/Resources/background.js; sourceTree = "<group>"; };
 		D437E45AA1DBB59470A7AE07 /* Configuration/App-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Configuration/App-Info.plist"; sourceTree = "<group>"; };
@@ -269,7 +257,6 @@
 		2A58D675E7DBF463D83DF8AE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
-				EA97DF1CEE3C572B85E196A6 /* AetherFFmpegBuild in Frameworks */,
 			);
 		};
 		4FEF4EDD1FD1EB82AAFE81AE /* Frameworks */ = {
@@ -312,13 +299,6 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		2A44EC573093FBB800D766F0 /* Media 2 */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = "Media 2";
-			sourceTree = "<group>";
-		};
 		325F10A6957A34D66CB8C0E4 = {
 			isa = PBXGroup;
 			children = (
@@ -350,7 +330,6 @@
 				4E8094FB0A52C529ACEBC74A /* SafariExtension/Resources/content.js */,
 				C08934F486E0A29569E72182 /* SafariExtension/Resources/manifest.json */,
 				F95D5C5758461302D2CA6B17 /* SafariExtension/Resources/page-runtime.js */,
-				0A1B2C3D4E5F60718293A4B6 /* SafariExtension/Resources/media-handoff.js */,
 				E4B63D0C985E6243ED9CDD16 /* SafariExtension/Resources/popup.css */,
 				7582AE7CC5B710B1C5FDC9BE /* SafariExtension/Resources/popup.html */,
 				736BAE1674AD522FE8CC454A /* SafariExtension/Resources/popup.js */,
@@ -382,19 +361,13 @@
 				966E69FA5BD3D8826AAB3206 /* Browser/BrowserController.swift */,
 				6CACCB834216F58970EEAA90 /* Browser/BrowserViews.swift */,
 				062E4DB1D8AB23DD5FEEFB9C /* Media/DownloadsView.swift */,
-				C0A71E1AF2BA946512AB8BB2 /* Media/HLSPlaylist.swift */,
-				A0312F713872860E6DAC9B13 /* Media/HLSRecorder.swift */,
 				0FD47DE585D9BDAC5FCA7873 /* Media/MediaExporter.swift */,
 				C06512E4C80F7A3390FED4D1 /* Media/MediaHTTP.swift */,
 				EFB74808CD90D30B9B820289 /* Media/MediaLibrary.swift */,
 				83FC0F1BB9A4CBD62C353016 /* Media/MediaModels.swift */,
-				31497D36B6950E6DDA287A99 /* Media/MediaRemux.c */,
-				2ABDA26A3093F7E600C1BF0B /* DTMediaRemux.h */,
 				600E4EF01CCFF6521887A554 /* Plugins/PluginLibrary.swift */,
 				635398CEA82E587738C99704 /* Plugins/PluginsView.swift */,
 				461908DA7C88718D431CD87F /* BrowserResources */,
-				5DC7FBC60BE7761899C7D7EB /* Licenses/FFmpegBuild */,
-				2A44EC573093FBB800D766F0 /* Media 2 */,
 			);
 			indentWidth = 5;
 			sourceTree = "<group>";
@@ -514,7 +487,6 @@
 			);
 			name = DevTools;
 			packageProductDependencies = (
-				657CCF97A76470F490B86F8D /* AetherFFmpegBuild */,
 			);
 			productName = DevTools;
 			productReference = 3E0FA95D8D056CEEC98B2D8C /* DevTools.app */;
@@ -646,7 +618,6 @@
 			);
 			mainGroup = 325F10A6957A34D66CB8C0E4;
 			packageReferences = (
-				28B6889367B530676AE60B97 /* XCRemoteSwiftPackageReference "FFmpegBuild" */,
 			);
 			preferredProjectObjectVersion = 110;
 			productRefGroup = FBDC4F23F93125BBEEAE800C /* Products */;
@@ -675,7 +646,6 @@
 				1A54F22A30733CB400CA2787 /* .prettierrc.json in Resources */,
 				59AE6E3276EBDD9D4481F69A /* Shared/PrivacyInfo.xcprivacy in Resources */,
 				EB3909194E766D7F0AFB63EC /* BrowserResources in Resources */,
-				D60AB4E36F7E2ABAE6EF50C1 /* Licenses/FFmpegBuild in Resources */,
 			);
 		};
 		3A3CEA5095CF4D95EEEC1EA8 /* Resources */ = {
@@ -706,7 +676,6 @@
 				335AC6A5938A6B1F9CCA561C /* SafariExtension/Resources/content.js in Resources */,
 				891012DDA99AB044F70D073D /* SafariExtension/Resources/manifest.json in Resources */,
 				D78E0F143439D4247629708C /* SafariExtension/Resources/page-runtime.js in Resources */,
-				0A1B2C3D4E5F60718293A4B5 /* SafariExtension/Resources/media-handoff.js in Resources */,
 				7ECD60F4E8ED9C36724B83D8 /* SafariExtension/Resources/popup.css in Resources */,
 				546EAF15D3435C5A38C9CCFE /* SafariExtension/Resources/popup.html in Resources */,
 				225DAEC1F74ED788F69FAF3D /* SafariExtension/Resources/popup.js in Resources */,
@@ -784,13 +753,10 @@
 				F753C9BE91A6BBDABF437011 /* Browser/BrowserController.swift in Sources */,
 				0F573151246E7C8329B7E808 /* Browser/BrowserViews.swift in Sources */,
 				B0DD67466C15BA8008C8B6D8 /* Media/DownloadsView.swift in Sources */,
-				FE5714B005F89901373EE336 /* Media/HLSPlaylist.swift in Sources */,
-				C821058E7A74F5A444E888FE /* Media/HLSRecorder.swift in Sources */,
 				661CC171DBA69ABC8D994B0B /* Media/MediaExporter.swift in Sources */,
 				CB5C3650E4DE9029D87650D3 /* Media/MediaHTTP.swift in Sources */,
 				D6C4B7B3EC2EE8E0FD9F3834 /* Media/MediaLibrary.swift in Sources */,
 				E0ECD4658077B96EA3FD4903 /* Media/MediaModels.swift in Sources */,
-				71C5D38AC5CF1F274CD12718 /* Media/MediaRemux.c in Sources */,
 				A08B4048D8AC53DCA4BC1A96 /* Plugins/PluginLibrary.swift in Sources */,
 				66931ACB646178870C5EF6DD /* Plugins/PluginsView.swift in Sources */,
 			);
@@ -895,7 +861,6 @@
 				CODE_SIGN_ENTITLEMENTS = Configuration/Shared.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEPLOYMENT_LOCATION = YES;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = GZ6B7VNBWJ;
 				ENABLE_APP_SANDBOX = YES;
@@ -923,12 +888,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/App-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-				INFOPLIST_KEY_NSAppleMusicUsageDescription = Yes;
-				INFOPLIST_KEY_NSDownloadsFolderUsageDescription = Yes;
-				INFOPLIST_KEY_NSFileProviderDomainUsageDescription = Yes;
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = Yes;
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = Yes;
-				INSTALL_PATH = "/Volumes/Macintosh HD - External/Applications/";
+				INSTALL_PATH = /Applications;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -951,7 +911,6 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "Configuration/DevTools-Bridging-Header.h";
 				SWIFT_SKIP_AUTOLINKING_FRAMEWORKS = No;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1419,7 +1378,6 @@
 				CODE_SIGN_ENTITLEMENTS = Configuration/Shared.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				DEPLOYMENT_LOCATION = YES;
 				DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES;
 				DEVELOPMENT_TEAM = GZ6B7VNBWJ;
 				ENABLE_APP_SANDBOX = YES;
@@ -1441,12 +1399,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Configuration/App-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-				INFOPLIST_KEY_NSAppleMusicUsageDescription = Yes;
-				INFOPLIST_KEY_NSDownloadsFolderUsageDescription = Yes;
-				INFOPLIST_KEY_NSFileProviderDomainUsageDescription = Yes;
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = Yes;
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = Yes;
-				INSTALL_PATH = "/Volumes/Macintosh HD - External/Applications/";
+				INSTALL_PATH = /Applications;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1466,7 +1419,6 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "Configuration/DevTools-Bridging-Header.h";
 				SWIFT_SKIP_AUTOLINKING_FRAMEWORKS = No;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1554,24 +1506,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		28B6889367B530676AE60B97 /* XCRemoteSwiftPackageReference "FFmpegBuild" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/superuser404notfound/FFmpegBuild";
-			requirement = {
-				kind = revision;
-				revision = f93e7788796eeede40bf866ed2f802b4dbfbef50;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		657CCF97A76470F490B86F8D /* AetherFFmpegBuild */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 28B6889367B530676AE60B97 /* XCRemoteSwiftPackageReference "FFmpegBuild" */;
-			productName = AetherFFmpegBuild;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 98F54143AB4E86B28C3AFEE0 /* Project object */;
 }

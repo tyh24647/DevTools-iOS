@@ -1,8 +1,7 @@
 import Foundation
-import WebKit
 
-/// One transfer owns its cookie snapshot. Redirects use URLSession's destination-scoped
-/// cookie handling, rather than forwarding a page's Cookie/Authorization header blindly.
+/// Bounded text fetching for explicit userscript URL imports.
+/// Redirects scope cookies to their destination and do not forward authorization headers.
 final class MediaHTTP: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
     private var session: URLSession!
     private let page: URL
@@ -11,7 +10,7 @@ final class MediaHTTP: NSObject, URLSessionDownloadDelegate, @unchecked Sendable
     private let limit: Int64
     private let progress: @Sendable (Int64, Int64) -> Void
 
-    init(page: URL, cookies: [HTTPCookie], userAgent: String? = nil, limit: Int64 = 256 * 1024 * 1024,
+    init(page: URL, cookies: [HTTPCookie], userAgent: String? = nil, limit: Int64 = 256 * 1024,
          progress: @escaping @Sendable (Int64, Int64) -> Void = { _, _ in }) {
         self.page = page
         self.userAgent = userAgent?.isEmpty == false ? userAgent! : "Mozilla/5.0 DevTools-iOS/2.0"
@@ -37,27 +36,25 @@ final class MediaHTTP: NSObject, URLSessionDownloadDelegate, @unchecked Sendable
         session.invalidateAndCancel()
     }
 
-    func download(_ url: URL, to destination: URL, range: HLSPlaylist.ByteRange? = nil) async throws -> HTTPURLResponse {
+    private func download(_ url: URL, to destination: URL) async throws -> HTTPURLResponse {
         guard ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil,
               url.user == nil, url.password == nil else {
-            throw MediaFailure.invalid("Unsupported media URL.")
+            throw MediaFailure.invalid("Unsupported script URL.")
         }
         var request = URLRequest(url: url)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue(page.absoluteString, forHTTPHeaderField: "Referer")
-        if let range {
-            request.setValue("bytes=\(range.offset)-\(range.offset + range.length - 1)", forHTTPHeaderField: "Range")
-        }
         let (temporary, response) = try await session.download(for: request)
         defer {
             try? FileManager.default.removeItem(at: temporary)
         }
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode),
-              range == nil || http.statusCode == 206 else {
-            throw MediaFailure.invalid("The media server rejected the request (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)) or ignored its byte range.")
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw MediaFailure.invalid("The script server rejected the request (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)).")
         }
         let handle = try FileHandle(forReadingFrom: temporary)
-        defer { try? handle.close() }
+        defer {
+            try? handle.close()
+        }
         let prefix = try handle.read(upToCount: 1024) ?? Data()
         let text = String(decoding: prefix, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let mime = http.mimeType?.lowercased() ?? ""
@@ -67,34 +64,26 @@ final class MediaHTTP: NSObject, URLSessionDownloadDelegate, @unchecked Sendable
             let pageURL = url.absoluteString.split(separator: "#").first == page.absoluteString.split(separator: "#").first
             let challenge = http.value(forHTTPHeaderField: "cf-mitigated")?.lowercased() == "challenge" || text.contains("cf-chl-") || text.contains("challenges.cloudflare.com")
             let details = "HTTP \(http.statusCode); type \(mime.isEmpty ? "unspecified" : mime); requested host \(url.host ?? "unknown"); response host \(http.url?.host ?? "unknown"); redirected \(redirected ? "yes" : "no"); source equals page \(pageURL ? "yes" : "no"); challenge markers \(challenge ? "yes" : "no")."
-            throw MediaFailure.invalid("The server returned a webpage instead of media. " + details + " Refresh the source page and select the media again.")
+            throw MediaFailure.invalid("The server returned a webpage instead of JavaScript. " + details + " Check the userscript URL and try again.")
         }
         let size = try temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-        guard size > 0, Int64(size) <= limit, range == nil || Int64(size) == range?.length else {
-            throw MediaFailure.invalid("Empty, oversized or incomplete media response.")
+        guard size > 0, Int64(size) <= limit else {
+            throw MediaFailure.invalid("Empty or oversized script response.")
         }
         try FileManager.default.moveItem(at: temporary, to: destination)
         return http
     }
 
-    func data(_ url: URL, maximum: Int = 2 * 1024 * 1024) async throws -> (Data, URL) {
+    func data(_ url: URL, maximum: Int = 256 * 1024) async throws -> (Data, URL) {
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer {
             try? FileManager.default.removeItem(at: temporary)
         }
         let response = try await download(url, to: temporary)
         guard (try temporary.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= maximum else {
-            throw MediaFailure.invalid("Media metadata exceeds its size limit.")
+            throw MediaFailure.invalid("Script source exceeds its size limit.")
         }
         return (try Data(contentsOf: temporary), response.url ?? url)
-    }
-
-    func playlist(_ url: URL) async throws -> HLSPlaylist {
-        let (data, resolved) = try await data(url)
-        guard let text = String(data: data, encoding: .utf8) else {
-            throw MediaFailure.invalid("Invalid playlist text.")
-        }
-        return try HLSPlaylist.parse(text, base: resolved)
     }
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,

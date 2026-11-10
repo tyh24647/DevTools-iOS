@@ -3,48 +3,28 @@
     if (window.top !== window || !/^https?:$/.test(location.protocol)) {
         return;
     }
-    let serial = 0;
-    const waiting = new Map();
-    globalThis.devtoolsMedia = {
-        postMessage(raw) {
-            const id = `${Date.now()}-${serial++}`;
-            return new Promise((resolve, reject) => {
-                const timer = setTimeout(() => { waiting.delete(id); reject(new Error("Native media bridge timed out.")); }, 10000);
-                waiting.set(id, { resolve, reject, timer });
-                window.postMessage({channel:"devtools-media-request", id, payload:JSON.parse(raw)}, "*");
-            });
-        }
-    };
-    addEventListener("message", (event) => {
-        if (event.source !== window || event.data?.channel !== "devtools-media-reply") {
-            return;
-        }
-        const record = waiting.get(event.data.id);
-        if (!record) {
-            return;
-        }
-        waiting.delete(event.data.id);
-        clearTimeout(record.timer);
-        event.data.error ? record.reject(new Error(event.data.error)) : record.resolve(event.data.result);
-    });
-    __MSE__
     __RULES__
     __USER_SCRIPTS__
     __RUNTIME__
     let config = __CONFIG__;
     // Register before page scripts. Preserve browser defaults for inspection gestures.
-    addEventListener("contextmenu",event=>{
-        if(config.enabled)event.stopImmediatePropagation();
-    },{capture:true});
-    addEventListener("keydown",event=>{
-        if(!config.enabled)return;
-        const key=event.key.toLowerCase();
-        const inspect=key==="f12" || ((event.ctrlKey||event.metaKey) && (event.shiftKey||event.altKey) && ["i","j","c"].includes(key));
-        if(inspect)event.stopImmediatePropagation();
-    },{capture:true});
+    addEventListener("contextmenu", (event) => {
+        if (config.enabled) {
+            event.stopImmediatePropagation();
+        }
+    }, {capture:true});
+    addEventListener("keydown", (event) => {
+        if (!config.enabled) {
+            return;
+        }
+        const key = event.key.toLowerCase();
+        const inspect = key === "f12" || ((event.ctrlKey || event.metaKey) && (event.shiftKey || event.altKey) && ["i", "j", "c"].includes(key));
+        if (inspect) {
+            event.stopImmediatePropagation();
+        }
+    }, {capture:true});
     let current = "";
     let generation = 0;
-    let hasMedia = false;
     const ruleSource = __RULE_SOURCE__;
     function load() {
         globalThis.__DTExpectedURL = location.href;
@@ -87,7 +67,6 @@
         const token = ++generation, url = location.href;
         if (current && current !== url) {
             __DevToolsRuntime.stop();
-            devtoolsMedia.postMessage(JSON.stringify({type:"leave"})).catch(() => {});
         }
         current = url;
         const decision = await decide(url);
@@ -98,14 +77,9 @@
             if (decision.run) {
                 load();
             }
-            globalThis.__DTMedia?.setEnabled(decision.run);
             globalThis.__DTNativeStatus = {...decision, ...(await __DevToolsRuntime.apply(config,decision,command,url))};
             if (decision.run) {
                 __DTUserscripts.start((config.plugins || []).filter(plugin => plugin.kind === "userscript"));
-                if (!hasMedia) {
-                    hasMedia = true;
-                    __MEDIA__
-                }
             }
         } catch (error) {
             globalThis.__DTNativeStatus = {run:false,reason:error.message,error:true};
@@ -117,7 +91,11 @@
     };
     function begin() {
         apply();
-        setInterval(() => { if (location.href !== current) { apply(); } }, 500);
+        setInterval(() => {
+            if (location.href !== current) {
+                apply();
+            }
+        }, 500);
     }
     if (document.head) {
         begin();

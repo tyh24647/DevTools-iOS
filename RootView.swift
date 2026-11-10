@@ -7,20 +7,20 @@ struct RootView: View {
     @StateObject private var media: MediaLibrary
     @StateObject private var plugins: PluginLibrary
     @StateObject private var browser: BrowserController
-    @State private var selection = 1
+    @State private var selection = 0
 
     init() {
         let media = MediaLibrary()
         let plugins = PluginLibrary()
         _media = StateObject(wrappedValue: media)
         _plugins = StateObject(wrappedValue: plugins)
-        _browser = StateObject(wrappedValue: BrowserController(media: media, plugins: plugins))
+        _browser = StateObject(wrappedValue: BrowserController(plugins: plugins))
     }
 
     var body: some View {
         TabView(selection: $selection) {
             browserTab
-            downloadsTab
+            mediaTab
             pluginsTab
             toolsTab
             settingsTab
@@ -37,12 +37,6 @@ struct RootView: View {
             if !checking { browser.refreshTools() }
         }
         .onChange(of: plugins.rows) { _, _ in browser.refreshTools() }
-        .onOpenURL { url in selection = 0; browser.handle(url) }
-        .sheet(item: $media.pending) { source in
-            SaveMediaView(source: source)
-                .environmentObject(media)
-                .environmentObject(browser)
-        }
         .alert("DevTools", isPresented: Binding(get: {
             media.notice != nil || browser.notice != nil
         }, set: { shown in
@@ -67,12 +61,12 @@ struct RootView: View {
         .tag(0)
     }
 
-    private var downloadsTab: some View {
+    private var mediaTab: some View {
         NavigationStack {
             DownloadsView()
         }
         .tabItem {
-            Label("Downloads", systemImage: "arrow.down.circle")
+            Label("Media files", systemImage: "folder")
         }
         .tag(1)
     }

@@ -1,56 +1,64 @@
-# iOS media and browser update
+# Local media and browser behavior
 
-This update is based on the supplied `DevTools-Android-main.zip` and iOS commit `3b14d784c8b2c653d71e153b8fe538be81528d65`. It adds a native WKWebView browser to the existing Safari extension app. Open the **DevTools** app target in `DevTools.xcodeproj`; the root Swift files are authoritative. The old `App/` copies are not the app target's source.
+## Review candidate 1.0.0 (2)
 
-## Available controls
+This document describes the current review candidate. The earlier Android-parity capture implementation is historical and is no longer the behavior shipped by this branch. Build 1 was rejected under Guideline 5.2.3; the source changes and draft reviewer response are recorded in [APP-REVIEW-5.2.3.md](Documentation/APP-REVIEW-5.2.3.md).
 
-Open a website in **Browser**. A download button appears over discovered videos; Eruda's Resources panel includes media previews and saving controls. Confirm the source in the native save dialog. Enable quality selection in Media settings to choose an HLS variant; otherwise the highest advertised resolution/bandwidth is selected.
+| Area | Current behavior |
+| --- | --- |
+| Browser | Tabbed WKWebView browsing, Eruda, page options, cookie tools, and generic user scripts |
+| Safari | Existing debugger extension and six configuration/show/hide share actions |
+| Media input | Documents explicitly selected through the Files picker |
+| Playback | Supported local audio/video playback and previews |
+| Conversion | A separate local MP4 or MOV copy using AVFoundation, subject to source/device support |
+| Export | Share/Files export and supported image/video export to Photos |
+| Website-media acquisition | Built-in download buttons, media discovery/saving panels, HLS acquisition, and page-stream recording removed |
+| Browser-to-media handoff | Dedicated native media messages and media-download deep links removed |
 
-For a live HLS stream, Download starts recording complete new segments without needing a final duration. **Stop and finalize**, an ended/unloaded video, a removed video element, navigation, or closing its tab normally stops recording and creates a movie from completed segments. **Stop HLS when source leaves** can be disabled to keep a native HLS transfer running after leaving its page. Buffer captures depend on the page and always stop when its tab closes.
+## Import, play, and organize
 
-Choose MP4 or MOV and original codecs, H.264, or HEVC in **Media settings**. HEVC is a video codec inside a container, not a separate file format. Original codecs are fastest. Apple export availability depends on the device and captured track codecs. Non-MP4-compatible codecs can fail at the intermediate MP4 remux stage even if Apple could encode them; those captures remain available for recovery.
+1. Open the **Media files** tab.
+2. Tap **Import from Files** and select one or more documents. Import places them in the currently open folder.
+3. Tap an imported audio/video row to play a supported file. Images and other supported documents use the available preview path.
+4. Long-press a file for **Rename**, **Move**, **Share**, or **Delete**. Use **New folder** to organize files.
 
-Set a 128–8192 MiB size limit. Live HLS can split and continue; each part ends after complete track segments, so the threshold is approximate. Conversion of a completed part runs separately while capture continues. MP4/WebM buffer recordings stop at the limit, because arbitrary byte offsets are not safe split points. Keep sufficient storage for both capture and conversion; a 512 MiB reserve stops further capture when space becomes low. Export can need considerably more space.
+The system Files picker can provide local documents or documents from configured file providers. Import copies selected document bytes into the app's library. There is no media-URL input in this workflow.
 
-**Downloads** supports folders, playback/Quick Look preview, Share/Files export, and Save to Photos. Failed/interrupted HLS and buffer captures retain checkpoints and received data. Reopening the app tries to finalize them; **Retry retained recordings** retries failures. Captures live in the app's `.DevTools Captures` directory, also accessible through Files/iTunes file sharing. Saved outputs live in `DevTools Media`. Do not edit checkpoint files while recording.
+Video preview preferences are in **Media files → Media settings** (the sliders button), or **Settings → Media settings → Open videos**. Available choices are **Fullscreen**, **Above the file**, and **Picture in Picture**. PiP requires device/OS support and may fall back to the inline player. Physical-device behavior remains a release validation step.
 
-## Android comparison
+## Convert a copy
 
-| Feature in supplied Android source | iOS behavior in this update |
-|---|---|
-| Tabbed native browser and independent rules | WKWebView browser, up to twelve tabs, separate AllowLists/blacklists |
-| HLS download, variant selection, separate audio | Native segment downloads and local MP4 remux; audio playlists included |
-| Unknown-duration livestream capture | Incremental segment checkpoints; stop/source close finalization |
-| Resource/media/image preview and saving | Browser discovery plus Downloads preview, Share and Photos |
-| Custom Eruda panels and userscripts | Import/edit, folders/tags, compile/metadata validation, explicit enable |
-| CSS editor and source formatting | Bundled Android CSS panel, formatter, and CodeMirror editor |
-| Firefox companion | Existing Safari extension preserved; HTTP video handoff opens the app's save dialog |
-| MP4 remux | Added MOV/H.264/HEVC export settings and optional live HLS file rollover |
+1. Long-press a supported audio/video file and choose **Convert a copy**.
+2. In **Convert media**, choose **Container**, **Video codec**, and **Folder**.
+3. Tap **Convert**.
 
-The Android source does not contain a general WebSocket-to-video converter. This update observes **MediaSource/SourceBuffer** MP4/WebM bytes, which can support socket-fed players that expose valid media through MSE. It captures a bounded initialization header and recent chunks, then writes acknowledged buffers to disk. Availability, codec compatibility, and a decodable starting keyframe depend on the player. Live video players exposing a `MediaStream` (including Agora/WebRTC) can now be recorded with `MediaRecorder` after enabling buffer recording in Page tools and reloading. Recording begins when requested; MP4 is preferred, with WebM used only if supported. Audio is included only when it is part of that same stream; a video-only stream creates a silent recording. Stop waits for the final recorder data before export and leaves the player tracks running. Incoming data is bounded to a 16 MiB queue and acknowledged in 256 KiB chunks. Browser/encoder availability is checked at runtime; unsupported streams report an error. Arbitrary WebSocket payloads, worker-owned media sources, DRM/SAMPLE-AES, and changing stream formats are unsupported. AES-128 identity HLS is supported; key and initialization requirements are validated.
+The container choices are MP4 and MOV. The codec choices are **Keep original (fast)**, **H.264**, and **HEVC**. The selected combination must be supported by AVFoundation for the input and device. An unsupported combination reports an error; the original stays available for playback or sharing. Conversion needs additional free storage and always creates a separate output.
 
-Safari's extension cannot run the app's native recorder continuously in its page. Its video action hands an HTTP(S) URL to the native app, which asks before starting. Safari blob URLs and cookies cannot be transferred; open authenticated sites and sign in inside DevTools first. HTTP URLs without an HLS extension require the native browser's MIME-based discovery to classify them correctly.
+The conversion boundary accepts file URLs only. Local AVFoundation assets forbid external references, so an imported reference movie is not a route to fetch another media resource. File import uses coordinated, security-scoped document access and bounded copying. The removed HLS recorder, capture recovery engine, FFmpeg remux bridge, and remote-transfer state are not part of this candidate.
 
-iOS suspends apps: backgrounding stops live capture and requests finite time to finalize. If time expires, checkpoints remain for reopening. Force-quitting or a device shutdown can lose uncommitted data. There is no promise of indefinite recording while suspended. This implementation does not add an audio/background-mode workaround.
+## Save to Photos
 
-Backend/vendor changes apply completely after reloading a tab. Existing automatic update policy is preserved: signed bundled packages in Release; the existing developer build flag permits integrity-checked cached packages. The native browser also uses that cache for new documents.
+Long-press a supported image or video and choose **Save to Photos**. Allow the requested Photos access when iOS asks. Audio and unsupported formats can still use **Share**. Verify both permission acceptance and denial on a physical device before submission.
 
-## Build and dependency
+## Generic scripts remain available
 
-Both existing app targets have the new sources/resources and pinned Swift package product `AetherFFmpegBuild` from [FFmpegBuild](https://github.com/superuser404notfound/FFmpegBuild), revision `f93e7788796eeede40bf866ed2f802b4dbfbef50`. Xcode resolves and embeds its dynamic frameworks at build time. Device installation requires no npm process, runtime compiler, or FFmpeg executable. The C bridge only handles local files; URLSession handles remote requests and browser cookie snapshots. FFmpeg is not linked into extensions.
+Open **Plugins → + → Import local JavaScript**, or **Import JavaScript URL → Read for review**. Review/edit the source, save it, and enable its switch. Imported scripts initially remain disabled. They execute on matching pages in the in-app browser; this library is not installed into Safari automatically.
 
-The package uses Swift tools 6.0 and iOS 16+ frameworks. Existing project deployment/signing settings are preserved (currently iOS 27). Choose an installed compatible SDK/device deployment target in Xcode as needed. FFmpeg/LGPL notices are bundled in `Licenses/FFmpegBuild`; review redistribution/relinking obligations before distribution. Existing advertising/purchase configuration remains unchanged. No certificates or provisioning profiles are supplied.
+This generic development feature does not provide the former native media downloader/recorder API, and this candidate does not package a replacement media-downloader script. Ordinary page JavaScript capabilities remain available; this is not a claim that every user-authored script is approved by Apple.
 
-`Scripts/patch-media-project.py` idempotently patches the current nine-target project and embeds all seven extensions. **Do not run the legacy `generate-project.py`** on this updated project: it regenerates the older layout. `npm run project` now calls the patcher.
+The `DEVTOOLS_REMOTE_UPDATES` flag governs replacement packages for the bundled developer tools. Release uses the bundled packages while optionally checking their versions. That flag does not disable the separate generic script importer.
 
-## Validation and remaining device checks
+## Build and validation
 
-Automated checks cover the Foundation HLS parser, JavaScript rule/runtime/MSE behavior, native bootstrap in Chromium, local C remux with TS/fMP4 stopped prefixes and separate audio, source syntax, Xcode project structure, plists, and bundled scripts. Host remux fixtures use FFmpeg 6.1; the bridge also passes syntax checking against the pinned Apple FFmpeg 8.1 headers.
+The active app uses the root Swift files and the **DevTools** scheme in `DevTools.xcodeproj`. Xcode with the iOS 27 SDK is required. The project retains the app, Safari extension, and six action extensions; the FFmpeg package dependency has been removed.
 
-**No Xcode build, simulator run, or device test was available in this environment.** Swift syntax checks do not establish Apple SDK type correctness. Before shipping, build both desired app configurations, confirm SPM embedding/signing, and test real sites, Stop/tab close/navigation, cookies/redirects, separate audio sync, AAC/HEVC output playback, size rollover, low storage, Photos/Files permissions, background expiration and recovery. Also verify the six share actions and Safari permissions on device. This is an implementation ready for Xcode validation, not a claim of fully verified Android parity.
+```bash
+bash Scripts/build-ios.sh
+bash Scripts/build-release.sh
+```
 
-On a Mac with the iOS 27 SDK, run `bash Scripts/build-ios.sh` to resolve packages, compile the DevTools scheme and package a simulator-only app at `Build/DevTools-iOS-Simulator.zip`. The GitHub Actions workflow runs the same check on pushes/PRs and can be started manually. A signed iPhone build still requires the developer's Xcode team and provisioning for the app, all seven extensions, and the App Group.
+These commands produce a Debug simulator ZIP, an unsigned Release application archive, and its device-app ZIP. None establishes a signed TestFlight upload. Full logs are written under `Build/Logs/`.
 
-## Live MediaStream recording validation
+Verified 2026-11-10: code commit `72b32b8bdc0d7c19d89183c7043c8f8379fd83e2` passed [CI run 42881231065](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065), including 11 Swift helper tests, both browser smoke suites, the Debug simulator build/analysis, and unsigned Release device compilation. The two ZIPs were inspected for versions, extensions, retained scripts, and removed resources. This confirms packaged contents; simulator UI launch, device/Photos-permission behavior, signing, upload, and approval remain unverified or pending. See [TESTING.md](Documentation/TESTING.md) and [RELEASE.md](Documentation/RELEASE.md).
 
-The DevTools Debug app passed `xcodebuild -project DevTools.xcodeproj -scheme DevTools -configuration Debug -destination "generic/platform=iOS Simulator" -derivedDataPath /tmp/devtools-stream-build -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=NO DEPLOYMENT_LOCATION=NO build`. Existing project settings redirect the product into `DerivedData/Build/Products/Debug-iphonesimulator`; the bundled capture scripts were verified against their source. All 32 JavaScript tests and `node Scripts/check.mjs` passed. A temporary macOS WKWebView harness connected two real WebRTC peers, recorded the remote video MediaStream through the video button, stopped it through the same button, flushed ordered final chunks, and verified a playable 320×180 MP4 of about 3.5 seconds with AVFoundation. The player track remained live. This validates WebKit recording behavior; the actual Agora page on an iPhone still needs testing. No usable iOS Simulator runtime was available for an app launch.
+The archive follow-up at `9111052ae34de4de136e73cfb93412b3a808beaf` also passed [CI run 42884343710](https://github.com/tyh24647/DevTools-iOS/actions/runs/42884343710), including the same regression suites and `ARCHIVE SUCCEEDED`. Its application archive contains all eight matching bundles. A manual workflow for using existing signing assets is prepared in [TESTFLIGHT-SIGNING.md](Documentation/TESTFLIGHT-SIGNING.md); actual signed export and upload are still pending.

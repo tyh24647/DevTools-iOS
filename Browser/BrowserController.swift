@@ -41,7 +41,7 @@ enum BrowserSearchEngine: String, CaseIterable, Identifiable {
 }
 
 @MainActor
-final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandlerWithReply {
+final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDelegate, WKUIDelegate {
     let id = UUID()
     let webView: WKWebView
     weak var owner: BrowserController?
@@ -50,8 +50,6 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
     @Published var progress = 0.0
     @Published var canBack = false
     @Published var canForward = false
-    @Published var discoveredMedia: [PageMedia] = []
-    @Published var mediaDiagnostics: [String: String] = [:]
     @Published private(set) var preview: UIImage?
     private var takingPreview = false
     private var historyPreviews: [String: UIImage] = [:]
@@ -99,13 +97,13 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
 
     init(owner: BrowserController, configuration: WKWebViewConfiguration) {
         self.owner = owner
-        // Popup configurations inherit the opener's controller and its message handlers.
-        // Keep the supplied configuration for window.opener, but own this tab's bridge.
+        // Keep popup configuration compatibility while giving each tab its own scripts.
         configuration.userContentController = WKUserContentController()
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
-        if #available(iOS 16.4, *) { webView.isInspectable = true }
-        configuration.userContentController.addScriptMessageHandler(self, contentWorld: .world(name: "DevToolsBridge"), name: "dtMedia")
+        if #available(iOS 16.4, *) {
+            webView.isInspectable = true
+        }
         webView.navigationDelegate = self
         webView.uiDelegate = self
         // BrowserPage owns edge history gestures so their preview and commit stay in sync.
@@ -137,87 +135,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         ]
     }
 
-    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage,
-                               replyHandler: @escaping (Any?, String?) -> Void) {
-        if let body = message.body as? [String: Any], body["type"] as? String == "media-diagnostics",
-           ["http", "https"].contains(message.frameInfo.securityOrigin.protocol), let summary = body["summary"] as? String {
-            mediaDiagnostics[message.frameInfo.securityOrigin.host] = String(summary.prefix(2000))
-            replyHandler(true, nil)
-            return
-        }
-        if let body = message.body as? [String: Any], body["type"] as? String == "media-discovery" {
-            guard ["http", "https"].contains(message.frameInfo.securityOrigin.protocol),
-                  let text = body["url"] as? String, text.utf8.count <= 8192,
-                  let resource = URL(string: text), ["http", "https"].contains(resource.scheme ?? ""),
-                  resource.user == nil, resource.password == nil,
-                  let page = message.frameInfo.request.url ?? webView.url else { replyHandler(nil, "Invalid media discovery"); return }
-            let source = PageMedia(url: text, page: page.absoluteString, tabID: id,
-                title: String((body["title"] as? String ?? title).prefix(160)), hls: body["hls"] as? Bool ?? false, mime: "video/unknown", durationHint: body["duration"] as? Double)
-            if let index = discoveredMedia.firstIndex(where: { $0.discoveryKey == source.discoveryKey }) {
-                if discoveredMedia[index] != source { discoveredMedia[index] = source }
-            } else if discoveredMedia.count < 200 { discoveredMedia.append(source) }
-            webView.evaluateJavaScript("globalThis.__DTMedia?.add(\(PluginLibrary.json(text)),true,\(source.hls),'video/unknown')")
-            replyHandler(true, nil)
-            return
-        }
-        guard message.frameInfo.isMainFrame, let url = webView.url,
-              ["http", "https"].contains(url.scheme ?? ""),
-              let body = message.body as? [String: Any], let type = body["type"] as? String else {
-            replyHandler(nil, "Untrusted media request.")
-            return
-        }
-        if type == "download-button-position-get" {
-            replyHandler(UserDefaults.standard.dictionary(forKey: "download-button-position-v1") ?? [:], nil)
-            return
-        }
-        if type == "download-button-position-save" {
-            guard let x = body["x"] as? Double, let y = body["y"] as? Double,
-                  x.isFinite, y.isFinite, (0...1).contains(x), (0...1).contains(y) else {
-                replyHandler(nil, "Invalid download button position.")
-                return
-            }
-            UserDefaults.standard.set(["x": x, "y": y], forKey: "download-button-position-v1")
-            replyHandler(true, nil)
-            return
-        }
-        do {
-            if type == "media-unavailable" {
-                owner?.notice = String((body["reason"] as? String ?? "No supported media source is available.").prefix(300))
-            } else if type.hasPrefix("blob-") {
-                try owner?.media.blobMessage(body, tabID: id)
-            } else if type == "leave" {
-                owner?.media.leave(tabID: id, reason: "Page route changed")
-            } else if let resource = body["url"] as? String, resource.utf8.count <= 4096 {
-                if type == "stop" || type == "unload" {
-                    if type == "stop", let transfer = owner?.media.transfers.first(where: { $0.source.tabID == id && $0.source.url == resource && !$0.finished }) {
-                        owner?.media.stop(transfer)
-                    } else {
-                        owner?.media.leave(tabID: id, url: resource, reason: "Video source unloaded")
-                    }
-                } else if type == "save" {
-                    guard resource.hasPrefix("blob:") || BrowserController.normalizedURL(resource) != nil else {
-                        throw MediaFailure.invalid("Unsupported media resource URL.")
-                    }
-                    owner?.media.pending = PageMedia(url: resource, page: url.absoluteString, tabID: id,
-                                                     title: String((body["title"] as? String ?? title).prefix(160)),
-                                                     hls: body["hls"] as? Bool ?? false, mime: String((body["mime"] as? String ?? "").prefix(120)))
-                } else if type == "share" {
-                    owner?.notice = "Media URL: \(resource)"
-                }
-            }
-            replyHandler(true, nil)
-        } catch {
-            replyHandler(nil, error.localizedDescription)
-        }
-    }
-
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else {
-            decisionHandler(.cancel)
-            return
-        }
-        if url.scheme == "devtools" {
-            owner?.handle(url)
             decisionHandler(.cancel)
             return
         }
@@ -229,18 +148,11 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         }
         if navigationAction.targetFrame?.isMainFrame == true, let previous = webView.url,
            previous.absoluteString != url.absoluteString {
-            Task {
-                await owner?.prepareToLeave(self, reason: "Navigated to another page")
-                decisionHandler(.allow)
-            }
+            owner?.prepareToLeave(self)
+            decisionHandler(.allow)
         } else {
             decisionHandler(.allow)
         }
-    }
-
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        discoveredMedia = []
-        mediaDiagnostics = [:]
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -275,9 +187,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        owner?.media.leave(tabID: id, reason: "Web content process ended")
-        owner?.forceCloseBlobs(tabID: id, reason: "Web content process ended")
-        owner?.notice = "The webpage process ended. Captured media is retained. Reload to restore the page."
+        owner?.notice = "The webpage process ended. Reload to restore the page."
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
@@ -308,7 +218,6 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         preview = nil
         observers = []
         webView.stopLoading()
-        webView.configuration.userContentController.removeScriptMessageHandler(forName: "dtMedia", contentWorld: .world(name: "DevToolsBridge"))
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
         webView.removeFromSuperview()
@@ -319,12 +228,6 @@ struct BrowserFilePicker: Identifiable {
     let id = UUID()
     let completion: ([URL]?) -> Void
     let multiple: Bool
-}
-
-struct BrowserPlayback: Identifiable {
-    let id = UUID()
-    let url: URL
-    let tabID: UUID
 }
 
 @MainActor
@@ -338,9 +241,6 @@ final class BrowserController: ObservableObject {
     }
     @Published var notice: String?
     @Published var filePicker: BrowserFilePicker?
-    @Published var playback: BrowserPlayback?
-    @Published var bufferCaptureEnabled = false { didSet { refreshTools() } }
-    @Published var passiveMediaMode = true { didSet { refreshTools() } }
     @Published var rules: NativeBrowserRules {
         didSet {
             if let data = try? JSONEncoder().encode(rules) {
@@ -355,7 +255,6 @@ final class BrowserController: ObservableObject {
         }
     }
 
-    let media: MediaLibrary
     let plugins: PluginLibrary
     private var config: [String: Any] = [:]
     private var ready = false
@@ -365,8 +264,7 @@ final class BrowserController: ObservableObject {
         tabs.first { $0.id == selected }
     }
 
-    init(media: MediaLibrary, plugins: PluginLibrary) {
-        self.media = media
+    init(plugins: PluginLibrary) {
         self.plugins = plugins
         if let data = UserDefaults.standard.data(forKey: "native-browser-rules-v2") {
             do {
@@ -393,31 +291,6 @@ final class BrowserController: ObservableObject {
             history = []
         }
 
-        media.onBlobStart = { [weak self] transfer in
-            guard let tab = self?.tabs.first(where: { $0.id == transfer.source.tabID }) else {
-                self?.media.finishBlob(transfer, reason: "Source tab unavailable")
-                return
-            }
-            Task {
-                do {
-                    _ = try await tab.webView.callAsyncJavaScript("if (!globalThis.__DTMSE) throw new Error('Enable buffer recording in Page tools, then reload the source page. HLS recording does not require buffer hooks.'); return await globalThis.__DTMSE.start(url,id);", arguments: ["url": transfer.source.url, "id": transfer.id.uuidString], in: nil, contentWorld: .page)
-                } catch {
-                    self?.media.finishBlob(transfer, reason: error.localizedDescription)
-                }
-            }
-        }
-        media.onBlobStop = { [weak self] transfer in
-            Task {
-                await self?.flushBlob(transfer)
-            }
-        }
-        media.onStatus = { [weak self] transfer in
-            guard let tab = self?.tabs.first(where: { $0.id == transfer.source.tabID }) else {
-                return
-            }
-            let code = "globalThis.__DTMedia?.status(\(PluginLibrary.json(transfer.source.url)),\(PluginLibrary.json(transfer.state)),\(transfer.progress.map { String($0) } ?? "null"),\(!transfer.finished),\(transfer.live),\(!transfer.captureEnded && transfer.state != "Finishing captured media"))"
-            tab.webView.evaluateJavaScript(code)
-        }
         loadAdBlockingRules()
     }
 
@@ -448,7 +321,6 @@ final class BrowserController: ObservableObject {
                 }
             }
             refreshTools()
-            media.recoverInterrupted()
         } catch {
             notice = error.localizedDescription
         }
@@ -505,20 +377,6 @@ final class BrowserController: ObservableObject {
         target?.webView.callAsyncJavaScript(script, arguments: [:], in: nil, in: .world(name: "DevToolsBridge"), completionHandler: { _ in })
     }
 
-    func openVideoPlayer() {
-        guard let tab = current else { return }
-        Task {
-            do {
-                let raw = try await tab.webView.evaluateJavaScript("globalThis.__DTMedia?.playableURL?.() || null") as? String
-                guard let raw, let url = URL(string: raw), ["http", "https"].contains(url.scheme ?? "") else {
-                    notice = "This page has not exposed an MP4 or HLS URL for the native player. Buffer, WebRTC, and protected streams stay in the webpage player."
-                    return
-                }
-                playback = BrowserPlayback(url: url, tabID: tab.id)
-            } catch { notice = error.localizedDescription }
-        }
-    }
-
     func navigate(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.lowercased().hasPrefix("javascript:") {
@@ -551,53 +409,20 @@ final class BrowserController: ObservableObject {
     }
 
     func close(_ tab: BrowserTab) {
-        Task {
-            await prepareToLeave(tab, reason: "Tab closed")
-            tab.dispose()
-            tabs.removeAll { $0.id == tab.id }
-            if selected == tab.id {
-                selected = tabs.last?.id
-            }
-            if tabs.isEmpty {
-                _ = newTab()
-            }
-            persistTabs()
+        prepareToLeave(tab)
+        tab.dispose()
+        tabs.removeAll { $0.id == tab.id }
+        if selected == tab.id {
+            selected = tabs.last?.id
         }
+        if tabs.isEmpty {
+            _ = newTab()
+        }
+        persistTabs()
     }
 
-    func prepareToLeave(_ tab: BrowserTab, reason: String) async {
+    func prepareToLeave(_ tab: BrowserTab) {
         tab.capturePreview()
-        media.leave(tabID: tab.id, reason: reason)
-        for transfer in media.transfers where transfer.source.tabID == tab.id && transfer.source.isBlob && !transfer.ingressClosed {
-            await flushBlob(transfer)
-        }
-    }
-
-    private func flushBlob(_ transfer: MediaTransfer) async {
-        if let tab = tabs.first(where: { $0.id == transfer.source.tabID }) {
-            // A document can't hold navigation indefinitely. Native checkpoints remain valid
-            // if the WebKit promise cannot flush before the timeout/page process loss.
-            await withCheckedContinuation { continuation in
-                let gate = BrowserFlushGate(continuation)
-                let timeout = Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 3_000_000_000)
-                    gate.finish()
-                }
-                tab.webView.callAsyncJavaScript("return await globalThis.__DTMSE?.stop(id);", arguments: ["id": transfer.id.uuidString], in: nil, in: .page, completionHandler: { _ in
-                    Task { @MainActor in
-                        timeout.cancel()
-                        gate.finish()
-                    }
-                })
-            }
-        }
-        media.finishBlob(transfer, reason: "Source stopped")
-    }
-
-    func forceCloseBlobs(tabID: UUID, reason: String) {
-        for transfer in media.transfers where transfer.source.tabID == tabID && transfer.source.isBlob {
-            media.finishBlob(transfer, reason: reason)
-        }
     }
 
     func refreshTools() {
@@ -640,9 +465,6 @@ final class BrowserController: ObservableObject {
     private func install(_ tab: BrowserTab) {
         let controller = tab.webView.configuration.userContentController
         controller.removeAllUserScripts()
-        controller.addUserScript(WKUserScript(source: asset("media-discovery.js"), injectionTime: .atDocumentStart, forMainFrameOnly: false, in: .world(name: "DevToolsBridge")))
-        if passiveMediaMode { return }
-        controller.addUserScript(WKUserScript(source: asset("native-bridge.js"), injectionTime: .atDocumentStart, forMainFrameOnly: true, in: .world(name: "DevToolsBridge")))
         let options = config["console"] as? [String: Any] ?? [:]
         var ids = ["eruda"]
         if config["pro"] as? Bool == true {
@@ -655,10 +477,10 @@ final class BrowserController: ObservableObject {
         let libraries = ids.map { asset("vendor/\($0).js") }.joined(separator: "\n") + asset("resource-timing.js") + asset("console-ui.js")
         var script = asset("native-bootstrap.js")
         for (token, replacement) in [
-            ("__MSE__", bufferCaptureEnabled ? asset("mse-capture.js") : ""), ("__RULES__", asset("rule-engine.js")),
+            ("__RULES__", asset("rule-engine.js")),
             ("__USER_SCRIPTS__", asset("userscripts.js")), ("__RUNTIME__", asset("page-runtime.js")),
             ("__RULE_SOURCE__", PluginLibrary.json(asset("rule-engine.js"))), ("__ASSETS__", libraries),
-            ("__SOURCE_FORMAT__", asset("source-formatting.js")), ("__MEDIA__", asset("media-resources.js")),
+            ("__SOURCE_FORMAT__", asset("source-formatting.js")),
             ("__CONFIG__", PluginLibrary.json(bridge()))
         ] {
             script = script.replacingOccurrences(of: token, with: replacement)
@@ -687,57 +509,6 @@ final class BrowserController: ObservableObject {
 
     func clearHistory() {
         history.removeAll()
-    }
-
-    func handle(_ url: URL) {
-        guard url.scheme == "devtools", let host = url.host,
-              let parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            notice = "Unsupported DevTools link."
-            return
-        }
-        switch host {
-        case "record":
-            guard let resource = parts.queryItems?.first(where: { $0.name == "url" })?.value,
-                  let target = Self.normalizedURL(resource) else {
-                notice = "Unsupported DevTools recording link."
-                return
-            }
-            let tab = newTab(url: target)
-            if let tab {
-                media.pending = PageMedia(url: target.absoluteString, page: target.absoluteString, tabID: tab.id, title: "Safari media", hls: target.pathExtension.lowercased() == "m3u8", mime: "video/mp4")
-            }
-        case "download":
-            handleDownloadLink(parts)
-        default:
-            notice = "Unsupported DevTools link."
-        }
-    }
-
-    private func handleDownloadLink(_ parts: URLComponents) {
-        guard let rawResource = parts.queryItems?.first(where: { $0.name == "url" })?.value,
-              let resource = Self.normalizedURL(rawResource),
-              let resourceScheme = resource.scheme?.lowercased(),
-              resourceScheme == "http" || resourceScheme == "https" else {
-            notice = "Unsupported DevTools download link."
-            return
-        }
-        let page = parts.queryItems?.first(where: { $0.name == "page" })?.value.flatMap(Self.normalizedURL).flatMap { pageURL in
-            guard let scheme = pageURL.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return nil }
-            return pageURL
-        } ?? resource
-        let title = String(parts.queryItems?.first(where: { $0.name == "title" })?.value ?? "Downloaded media").prefix(160)
-        let extensionName = resource.pathExtension.lowercased()
-        let mime: String
-        switch extensionName {
-        case "m3u8": mime = "application/vnd.apple.mpegurl"
-        case "webm": mime = "video/webm"
-        case "mov": mime = "video/quicktime"
-        case "mp4", "m4v": mime = "video/mp4"
-        default: mime = "video/unknown"
-        }
-        media.pending = PageMedia(url: resource.absoluteString, page: page.absoluteString,
-                                  tabID: current?.id ?? UUID(), title: String(title),
-                                  hls: extensionName == "m3u8", mime: mime)
     }
 
     static func addressURL(_ raw: String, engine: BrowserSearchEngine) -> URL? {
@@ -773,17 +544,3 @@ final class BrowserController: ObservableObject {
         return url
     }
 }
-
-/// Navigation resumes once, even when a destroyed page never resolves its promise.
-@MainActor
-private final class BrowserFlushGate {
-    private var continuation: CheckedContinuation<Void, Never>?
-    init(_ continuation: CheckedContinuation<Void, Never>) {
-        self.continuation = continuation
-    }
-    func finish() {
-        continuation?.resume()
-        continuation = nil
-    }
-}
-

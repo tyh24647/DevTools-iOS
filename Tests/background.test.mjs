@@ -12,17 +12,22 @@ const rules = await fs.readFile(
     "utf8"
 );
 
-function harness() {
+function harness({ initiallyEnabled = false } = {}) {
     const native = [];
     const scripts = [];
     let listener;
     let snapshotError = false;
-    let enabled = false;
+    let enabled = initiallyEnabled;
     const context = vm.createContext({
         URL,
         setTimeout,
         clearTimeout,
         console,
+        fetch: async () => ({
+            json: async () => ({
+                assets: [{ id: "eruda", file: "vendor/eruda.js" }]
+            })
+        }),
         Worker: class {
             constructor() {
                 throw new Error("Worker unavailable");
@@ -59,7 +64,10 @@ function harness() {
             scripting: {
                 async executeScript(details) {
                     scripts.push(details);
-                    return [{ result: { active: false } }];
+                    if (details.args?.[0] === "eruda") {
+                        return [{ result: false }];
+                    }
+                    return [{ result: { active: details.args?.[1]?.run ?? false } }];
                 }
             },
             webNavigation: { onHistoryStateUpdated: { addListener: () => {} } }
@@ -110,6 +118,23 @@ test("the extension popup can toggle the native global setting", async () => {
     assert.deepEqual(
         h.native.map((item) => item.operation),
         ["setEnabled", "snapshot"]
+    );
+});
+test("enabled Safari inspection injects debugger assets without media handoff", async () => {
+    const h = harness({ initiallyEnabled: true });
+    const result = await h.send(
+        { type: "sync" },
+        { tab: { id: 10 }, frameId: 0, url: "https://example.com/" }
+    );
+    assert.equal(result.decision.run, true);
+    assert.equal(result.status.active, true);
+    assert.deepEqual(
+        h.scripts.flatMap((script) => script.files ?? []),
+        ["page-runtime.js", "resource-timing.js", "vendor/eruda.js"]
+    );
+    assert.deepEqual(
+        h.native.map((item) => item.operation),
+        ["snapshot"]
     );
 });
 test("native storage failure requests console teardown", async () => {

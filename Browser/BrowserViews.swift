@@ -1,7 +1,5 @@
 import SwiftUI
 import WebKit
-import AVKit
-import CoreImage
 import UniformTypeIdentifiers
 
 struct BrowserView: View {
@@ -61,7 +59,6 @@ struct BrowserView: View {
         .sheet(isPresented: $showingCookies) {
             if let tab = browser.current { CookieManagerView(webView: tab.webView) }
         }
-        .sheet(item: $browser.playback) { NativeVideoPlayer(source: $0, browser: browser) }
     }
     private func tabSwipe(width: CGFloat) -> some Gesture<DragGesture.Value> {
         DragGesture(minimumDistance: 24)
@@ -104,7 +101,6 @@ struct BrowserView: View {
 }
 
 private struct SafariBrowserPage: View {
-    @EnvironmentObject private var media: MediaLibrary
     @ObservedObject var tab: BrowserTab
     @ObservedObject var browser: BrowserController
     @Binding var address: String
@@ -115,24 +111,10 @@ private struct SafariBrowserPage: View {
     let tabSwipe: AnyGesture<DragGesture.Value>
     let pageOffset: CGFloat
     @FocusState private var editingAddress: Bool
-    @State private var showingDetectedMedia = false
-    @State private var manualMediaURL = ""
 
     var body: some View {
         BrowserPage(tab: tab)
             .offset(x: pageOffset)
-            .overlay(alignment: .topTrailing) {
-                Group {
-                    if let transfer = media.transfers.first(where: { $0.source.tabID == tab.id && !$0.finished }) ?? media.transfers.first(where: { $0.source.tabID == tab.id }) {
-                        NativeTransferControl(transfer: transfer, media: media) { showingDetectedMedia = true }
-                    } else {
-                        Button { showingDetectedMedia = true } label: {
-                            Image(systemName: "arrow.down").font(.system(size: 22)).frame(width: 48, height: 48)
-                        }.accessibilityLabel("Download media or inspect detected media")
-                    }
-                }
-                .modifier(BrowserGlassSurface()).padding(12)
-            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Group {
                     if #available(iOS 26, *) {
@@ -140,48 +122,6 @@ private struct SafariBrowserPage: View {
                     } else { controls }
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
-            }
-            .sheet(isPresented: $showingDetectedMedia) {
-                NavigationStack {
-                    List {
-                        Section("Detection status") {
-                            if tab.mediaDiagnostics.isEmpty { Text("Waiting for the page observer. Reload the page if this does not update.") }
-                            ForEach(tab.mediaDiagnostics.keys.sorted(), id: \.self) { host in
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(host).font(.headline)
-                                    Text(tab.mediaDiagnostics[host] ?? "").font(.caption).textSelection(.enabled)
-                                }
-                            }
-                        }
-                        Section("Playlist URL") {
-                            TextField("Paste .m3u8 or video URL", text: $manualMediaURL)
-                                .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-                            Button("Save from URL") {
-                                guard let url = URL(string: manualMediaURL.trimmingCharacters(in: .whitespacesAndNewlines)),
-                                      ["http", "https"].contains(url.scheme ?? ""), url.host != nil, url.user == nil, url.password == nil else {
-                                    browser.notice = "Enter an HTTP(S) media URL."; return
-                                }
-                                browser.media.pending = PageMedia(url: url.absoluteString, page: tab.address, tabID: tab.id,
-                                    title: tab.title, hls: url.absoluteString.lowercased().contains(".m3u8"), mime: "video/unknown")
-                                showingDetectedMedia = false
-                            }.disabled(manualMediaURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        }
-                        if tab.discoveredMedia.isEmpty { Text("No MP4 or .m3u8 requests observed yet.") }
-                        ForEach(tab.discoveredMedia.sorted { left, right in
-                            if left.hls != right.hls { return left.hls }
-                            return (left.durationHint ?? 0) > (right.durationHint ?? 0)
-                        }) { source in
-                            Button {
-                                browser.media.pending = source
-                                showingDetectedMedia = false
-                            } label: {
-                                DetectedMediaRow(source: source, webView: tab.webView)
-                            }
-                        }
-                    }
-                    .navigationTitle("Detected media")
-                    .toolbar { Button("Done") { showingDetectedMedia = false } }
-                }
             }
             .onReceive(tab.$address) { value in if !editingAddress { address = value } }
     }
@@ -201,12 +141,12 @@ private struct SafariBrowserPage: View {
                         ForEach(BrowserSearchEngine.allCases) { engine in Text(engine.rawValue).tag(engine) }
                     }
                     Button("Page options") { showingSiteMenu = true }
-                    Toggle("Passive media detection (reload page)", isOn: $browser.passiveMediaMode)
-                    Button("Show console") { browser.command("show") }.disabled(browser.passiveMediaMode)
-                    Button("Hide console") { browser.command("hide") }.disabled(browser.passiveMediaMode)
-                    Button("Detected media (\(tab.discoveredMedia.count))") { showingDetectedMedia = true }
-                    Toggle("Enable buffer recording (reload page)", isOn: $browser.bufferCaptureEnabled).disabled(browser.passiveMediaMode)
-                    Button("Open in video player", systemImage: "play.rectangle") { browser.openVideoPlayer() }
+                    Button("Show console") {
+                        browser.command("show")
+                    }
+                    Button("Hide console") {
+                        browser.command("hide")
+                    }
                     Toggle("Enable browser tools", isOn: $browser.rules.enabled)
                     Toggle("Disable page scroll blocking", isOn: $pageScrollingUnlocked)
                         .onChange(of: pageScrollingUnlocked) { _, value in browser.setPageScrollingUnlocked(value) }
@@ -317,30 +257,6 @@ private struct BrowserTabOverview: View {
     }
 }
 
-private struct NativeTransferControl: View {
-    @ObservedObject var transfer: MediaTransfer
-    let media: MediaLibrary
-    let showMedia: () -> Void
-    private var canStop: Bool { transfer.live && !transfer.captureEnded && transfer.state != "Finishing captured media" }
-    private var progress: Double { transfer.finished && transfer.error == nil ? 1 : min(0.99, max(0, transfer.progress ?? 0)) }
-    var body: some View {
-        Button {
-            if canStop { media.stop(transfer) } else { showMedia() }
-        } label: {
-            ZStack {
-                Circle().stroke(.secondary.opacity(0.25), lineWidth: 3)
-                Circle().trim(from: 0, to: progress)
-                    .stroke(transfer.finished && transfer.error == nil ? Color.green : Color.accentColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                Image(systemName: canStop ? "stop.fill" : transfer.finished && transfer.error == nil ? "checkmark" : transfer.captureEnded && !transfer.finished ? "hourglass" : "arrow.down")
-                    .font(.system(size: 20))
-            }.padding(4).frame(width: 48, height: 48)
-        }
-        .accessibilityLabel(canStop ? "Stop livestream recording" : transfer.finished && transfer.error == nil ? "Video saved; show detected media" : "Show media download status")
-        .accessibilityValue(transfer.live ? transfer.state : "\(Int(progress * 100)) percent")
-    }
-}
-
 private struct BrowserRoundGlassSurface: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 26, *) { content.glassEffect(.regular.interactive(), in: .circle) }
@@ -352,27 +268,6 @@ private struct BrowserGlassSurface: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 26, *) { content.glassEffect(.regular.interactive(), in: .capsule) }
         else { content.background(.ultraThinMaterial, in: Capsule()) }
-    }
-}
-
-private struct NativeVideoPlayer: View {
-    let source: BrowserPlayback
-    @ObservedObject var browser: BrowserController
-    @Environment(\.dismiss) private var dismiss
-    @State private var player = AVPlayer()
-    var body: some View {
-        NavigationStack {
-            VideoPlayer(player: player)
-                .navigationTitle("Video player").navigationBarTitleDisplayMode(.inline)
-                .toolbar { Button("Done") { dismiss() } }
-                .task {
-                    guard let tab = browser.tabs.first(where: { $0.id == source.tabID }) else { return }
-                    let cookies = await tab.webView.configuration.websiteDataStore.httpCookieStore.allCookies()
-                    let asset = AVURLAsset(url: source.url, options: [AVURLAssetHTTPCookiesKey: cookies])
-                    player.replaceCurrentItem(with: AVPlayerItem(asset: asset)); player.play()
-                }
-                .onDisappear { player.pause(); player.replaceCurrentItem(with: nil) }
-        }
     }
 }
 
@@ -962,150 +857,6 @@ private struct CookieAddView: View {
                     .disabled(cookie.name.isEmpty || cookie.domain.isEmpty || cookie.path.isEmpty)
                 }
             }
-        }
-    }
-}
-
-// Other structs and extensions remain unchanged...
-
-
-/// Row-local work is cancelled when the media sheet disappears; only small images are cached.
-private struct DetectedMediaRow: View {
-    let source: PageMedia
-    let webView: WKWebView
-    @State private var thumbnail: UIImage?
-    @State private var resolution = "Checking resolution…"
-    @State private var loading = true
-    private static let images: NSCache<NSString, UIImage> = {
-        let cache = NSCache<NSString, UIImage>()
-        cache.totalCostLimit = 12 * 1024 * 1024
-        return cache
-    }()
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 6).fill(.secondary.opacity(0.12))
-                if let thumbnail {
-                    Image(uiImage: thumbnail).resizable().scaledToFit()
-                } else if loading {
-                    ProgressView()
-                } else {
-                    Image(systemName: "video").foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 96, height: 54).clipShape(RoundedRectangle(cornerRadius: 6))
-            .accessibilityLabel(thumbnail == nil ? "Preview unavailable" : "Video preview")
-            VStack(alignment: .leading, spacing: 4) {
-                Text(source.hls ? "HLS playlist (.m3u8)" : "Video resource")
-                Text(resolution).font(.caption).foregroundStyle(.secondary)
-                if let duration = source.durationHint, duration.isFinite, duration > 0 {
-                    Text("\(Int(duration)) seconds").font(.caption)
-                }
-                Text(URL(string: source.url)?.host ?? "Media").font(.caption).foregroundStyle(.secondary)
-            }
-        }
-        .task(id: source.url) { await loadPreview() }
-    }
-
-    @MainActor
-    private func loadPreview() async {
-        loading = true
-        resolution = "Checking resolution…"
-        thumbnail = Self.images.object(forKey: source.id as NSString)
-        defer { loading = false }
-        guard let url = URL(string: source.url), ["http", "https"].contains(url.scheme ?? ""),
-              let page = URL(string: source.page) else { resolution = "Resolution unavailable"; return }
-        let cookies = await webView.configuration.websiteDataStore.httpCookieStore.allCookies()
-        guard !Task.isCancelled else { return }
-        let userAgent = webView.customUserAgent
-        var previewURL = url
-        // A master playlist can advertise several resolutions. Show all of them before selection.
-        if source.hls {
-            let http = MediaHTTP(page: page, cookies: cookies, userAgent: userAgent)
-            defer { http.close() }
-            if let playlist = try? await http.playlist(url) {
-                let variants = playlist.variants.sorted { $0.height > $1.height }
-                let sizes = Set(variants.filter { $0.width > 0 && $0.height > 0 }.map { "\($0.width)×\($0.height)" })
-                if !sizes.isEmpty {
-                    resolution = variants.map { "\($0.width)×\($0.height)" }
-                        .filter { sizes.contains($0) }.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.joined(separator: ", ")
-                }
-                previewURL = variants.first?.url ?? url
-            }
-        }
-        guard !Task.isCancelled else { return }
-        let asset = AVURLAsset(url: previewURL, options: [AVURLAssetHTTPCookiesKey: cookies])
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: 288, height: 162)
-        // A bounded lifetime also covers servers which accept a connection but never serve media.
-        let timeout = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(20))
-            if !Task.isCancelled { generator.cancelAllCGImageGeneration(); asset.cancelLoading() }
-        }
-        defer { timeout.cancel() }
-        await withTaskCancellationHandler {
-            if resolution == "Checking resolution…",
-               let track = try? await asset.loadTracks(withMediaType: .video).first,
-               let size = try? await track.load(.naturalSize),
-               let transform = try? await track.load(.preferredTransform) {
-                let display = size.applying(transform)
-                if display.width.isFinite && display.height.isFinite && abs(display.width) > 0 && abs(display.height) > 0 {
-                    resolution = "\(Int(abs(display.width)))×\(Int(abs(display.height)))"
-                }
-            }
-            if resolution == "Checking resolution…" { resolution = "Resolution unavailable" }
-            guard thumbnail == nil, !Task.isCancelled else { return }
-            let duration = (try? await asset.load(.duration).seconds) ?? 0
-            let seconds = duration.isFinite && duration > 0 ? min(30, duration * 0.1) : 0
-            for time in [seconds, 0] {
-                guard !Task.isCancelled else { return }
-                if let frame = try? await generator.image(at: CMTime(seconds: time, preferredTimescale: 600)) {
-                    let image = UIImage(cgImage: frame.image)
-                    thumbnail = image
-                    Self.images.setObject(image, forKey: source.id as NSString, cost: frame.image.bytesPerRow * frame.image.height)
-                    break
-                }
-            }
-            // Many HLS streams have no I-frame playlist for AVAssetImageGenerator.
-            // Decode a muted opening frame instead, without adding a visible player.
-            if thumbnail == nil, source.hls, !Task.isCancelled {
-                let item = AVPlayerItem(asset: asset)
-                let output = AVPlayerItemVideoOutput(pixelBufferAttributes: [
-                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
-                ])
-                item.add(output)
-                let player = AVPlayer(playerItem: item)
-                player.isMuted = true
-                player.play()
-                defer { player.pause(); player.replaceCurrentItem(with: nil); item.remove(output) }
-                for _ in 0..<80 {
-                    guard !Task.isCancelled else { return }
-                    if let buffer = output.copyPixelBuffer(forItemTime: item.currentTime(), itemTimeForDisplay: nil) {
-                        let frame = CIImage(cvPixelBuffer: buffer)
-                        let scale = min(288 / frame.extent.width, 162 / frame.extent.height, 1)
-                        let small = frame.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-                        if let cgImage = CIContext().createCGImage(small, from: small.extent) {
-                            let image = UIImage(cgImage: cgImage)
-                            thumbnail = image
-                            Self.images.setObject(image, forKey: source.id as NSString, cost: cgImage.bytesPerRow * cgImage.height)
-                            if resolution == "Resolution unavailable" {
-                                let size = item.presentationSize
-                                if size.width > 0 && size.height > 0 {
-                                    resolution = "\(Int(size.width))×\(Int(size.height))"
-                                }
-                            }
-                            break
-                        }
-                    }
-                    if item.status == .failed { break }
-                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
-                }
-            }
-        } onCancel: {
-            generator.cancelAllCGImageGeneration()
-            asset.cancelLoading()
         }
     }
 }

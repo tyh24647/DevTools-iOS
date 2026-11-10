@@ -1,25 +1,24 @@
-> Native browser and media recording update: see [MEDIA-PARITY.md](MEDIA-PARITY.md) for usage, platform limits, build requirements and validation. On a Mac with an iOS 27 SDK, run `bash Scripts/build-ios.sh` for an unsigned Simulator app, or open the `DevTools` scheme in Xcode for a signed device build.
+> Review candidate: **1.0.0 (2)**. This revision removes the built-in website-media downloader, stream recorder, media deep-link handoff, and native media-acquisition bridge. It keeps browser debugging, generic user scripts, and media imported through Files. See [media behavior](MEDIA-PARITY.md), [release preparation](Documentation/RELEASE.md), and the [draft response to Guideline 5.2.3](Documentation/APP-REVIEW-5.2.3.md).
 
 # ⚙︎ DevTools for iOS
 
-SwiftUI containing app + Safari Web Extension + six independently named Safari share-sheet actions.
+SwiftUI app with an in-app browser, Safari Web Extension, and six independently named Safari share-sheet actions. The active app uses the Swift files at the repository root; the older copies in `App/` are not the `DevTools` target's app source.
 
-The app defaults to **enabled**, **run on every webpage**, and **automatically install updates**. Safari still requires the owner to enable the extension and grant website access. Blacklists take priority over AllowLists.
+The app defaults to **enabled** and **run on every webpage**. Safari still requires the owner to enable the extension and grant website access. Blacklists take priority over AllowLists. The package-update switch also defaults to on; Release builds use it to check bundled developer-tool versions. The generic script importer is a separate feature and remains available in Release.
 
 ## Open and run
 
-1. Open **DevTools.xcodeproj** in Xcode 16 or newer, using an Xcode version that supports the iOS version installed on your phone. Deployment target: iOS 17.5.
-2. Copy Configuration/Developer.xcconfig.example to Configuration/Developer.xcconfig and set your development team. Use an App Group registered to that team.
-3. In Signing & Capabilities, verify the app and **all seven extension targets** use the same team and App Group. The supplied identifier is group.com.tyh24647.DevTools; change DT_APP_GROUP once in Developer.xcconfig if needed. DT_BUNDLE_PREFIX defaults to com.tyh24647.DevTools.
-4. Let Xcode resolve the media-processing package through Swift Package Manager.
-5. Select the **DevTools** scheme and your iPhone, then Run.
-6. On the phone, open **Settings → Apps → Safari → Extensions → ⚙︎ DevTools**, enable it and grant website access. Choose All Websites for automatic operation everywhere.
-7. Reload a normal HTTP/HTTPS page. The floating Eruda button should appear. Safari’s extension popup provides Show, Hide, enable/disable, and quick rule creation.
-8. In Safari’s Share sheet, use **Edit Actions** to favorite the six DevTools actions. iOS controls their order and displayed/truncated labels.
+1. Open **DevTools.xcodeproj** in Xcode with the **iOS 27 SDK**. The main app and Safari extension currently target iOS 27.0; use a compatible simulator or physical device.
+2. Select your development team in Xcode. Optional shared identifier overrides belong in `Configuration/Developer.xcconfig`, copied from the supplied example. Target settings can override xcconfig values, so verify the effective settings in Xcode.
+3. In Signing & Capabilities, verify the app and **all seven extension targets** use the same team and registered App Group. The supplied identifier is `group.com.tyh24647.DevTools`; `DT_APP_GROUP` and `DT_BUNDLE_PREFIX` define shared identifiers.
+4. Select the **DevTools** scheme and your iPhone, then Run.
+5. On the phone, open **Settings → Apps → Safari → Extensions → ⚙︎ DevTools**, enable it and grant website access. Choose All Websites for automatic operation everywhere.
+6. Reload a normal HTTP/HTTPS page. The floating Eruda button should appear. Safari’s extension popup provides Show, Hide, enable/disable, and quick rule creation.
+7. In Safari’s Share sheet, use **Edit Actions** to favorite the six DevTools actions. iOS controls their order and displayed/truncated labels.
 
 No npm installation is needed to open or build the supplied project: the JavaScript assets are already bundled. npm is used only for development-time updates and tests.
 
-**Build status:** Swift syntax, project serialization, resources and JavaScript behavior were checked in a Linux workspace. Xcode compilation, signing, StoreKit integration, AdMob integration and real iPhone Safari behavior have **not** been verified here. This is an Xcode source deliverable, not a signed IPA or an App Store submission.
+**Candidate status, verified 2026-11-10:** Build 1 was submitted to TestFlight and rejected under Guideline 5.2.3. Build 2 passed [the app-change CI run](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065) and [the archive follow-up](https://github.com/tyh24647/DevTools-iOS/actions/runs/42884343710), including browser and Swift tests, the Debug simulator build/static analysis, and an unsigned Release application archive. The packaged products and all eight bundles were checked. A [manual signing/upload workflow](Documentation/TESTFLIGHT-SIGNING.md) is prepared on the repair branch. Simulator UI launch, physical-device behavior, actual signing/upload, and App Review approval remain unverified or pending. See [release validation](Documentation/RELEASE.md).
 
 ## Included behavior
 
@@ -34,6 +33,9 @@ No npm installation is needed to open or build the supplied project: the JavaScr
 | Show / Hide | Show opens panel + icon; Hide hides both but preserves the active page console session |
 | Enable / Disable | Changes the global DevTools setting, not Safari’s system permission |
 | Pro | StoreKit 2 monthly subscription or non-consumable lifetime purchase |
+| In-app browser | Tabbed WKWebView browsing, address/search controls, console, page options, and cookie tools |
+| Generic scripts | Local JavaScript import, URL-to-editor import, user editing, matching metadata, and explicit enablement in the in-app browser |
+| Media files | Files import, folders, supported local playback, conversion of a copy, Share, and supported Photos export |
 | App styling | RegexDojo-inspired native tabs, rounded material cards, accent presets and system/light/dark modes |
 | App icon | Included opaque 1024px icon and extension icon sizes |
 
@@ -47,6 +49,14 @@ The six Action Extension titles are exactly:
 - ⚙︎ DevTools - Disable
 
 The add actions offer list selection, match type and optional creation of a new list. Adding to an inactive list leaves it inactive. Ads are not included in any extension.
+
+## User scripts and local media
+
+In **Plugins → +**, choose **New userscript**, **New Eruda panel**, **Import local JavaScript**, or **Import JavaScript URL**. URL import uses **Read for review** to load source into the editor. Save it, then explicitly turn on its switch. New imports start disabled; changing a saved script's source or kind disables it again. Script validation checks syntax and supported metadata before enablement. The bundled Page CSS editor is a separate, initially enabled tool.
+
+Custom scripts run on matching pages in the **in-app browser**. They are not automatically installed into the Safari extension. The library supports up to 20 scripts, each at most 256 KiB, and a bounded subset of userscript grants; unsupported grants are rejected. This is a general development feature, with no bundled media-downloader script or native media-acquisition API for scripts. It does not claim to prevent every operation that ordinary page JavaScript can perform.
+
+Use **Media files → Import from Files** for documents selected through the system picker. Tap a supported audio/video file to play it. Long-press a file for **Convert a copy**, **Save to Photos** when supported, or sharing and file-management actions. Conversion operates on an imported local file and preserves the original. See [MEDIA-PARITY.md](MEDIA-PARITY.md) for precise paths and format limits.
 
 ## Bundled npm versions
 
@@ -84,7 +94,9 @@ All six supplied settings groups are seeded before initialization:
 
 Pro enables changing the panel size, transparency, theme and icon persistence, plus Eruda’s own settings controls. Unlimited logs and invasive console/DOM inspection can consume substantial memory or affect a page; these are the expressly requested defaults.
 
-## Automatic updates: explicit build distinction
+## Bundled-tool updates and script imports
+
+`DEVTOOLS_REMOTE_UPDATES` controls the updater for the app's known bundled developer-tool packages. It does **not** control the separate **Plugins** importer described above. This distinction applies to both the implementation and the review notes.
 
 **Debug / personal-development build**
 
@@ -99,11 +111,11 @@ Pro enables changing the panel size, transparency, theme and icon persistence, p
 **Release / distribution build**
 
 - The same switch performs automatic version checks, but executable packages remain bundled.
-- The native bridge is compiled without DEVTOOLS_REMOTE_UPDATES, so it cannot supply downloaded executable assets.
+- `DEVTOOLS_REMOTE_UPDATES` is absent, so the package-cache path cannot supply downloaded replacements for bundled developer tools.
 - Deliver package upgrades in a signed app update. Do not re-enable personal-development remote execution without reviewing distribution requirements.
 - The app explains this behavior instead of claiming that it installed newer executable packages.
 
-iOS does not provide a usable npm command-line runtime inside an ordinary app. JavaScript “installation” here means bundling npm artifacts at build time or caching approved bundle files in the Debug build.
+iOS does not run npm inside this app. npm prepares bundled tool assets during development. Generic script import reads user-selected JavaScript into a reviewable editor and stores it separately from the bundled-tool package cache.
 
 ## Purchases
 
@@ -118,11 +130,22 @@ Choose the **DevTools-StoreKit** scheme for local purchase testing. If Xcode doe
 
 Both products unlock the same Pro features. Restore, pending purchases, cancellation, verified transactions, expiry and revocation are handled. Buying lifetime does not cancel an existing monthly subscription; the paywall directs users to subscription management.
 
-The app is ad-free. Advertising SDKs, banner views, interstitials, app-open ads, and ad consent UI are removed. The browser blocks known advertising hosts and explicitly marked ad containers; promotional clips served as normal site media remain distinguishable by their duration in the media picker.
+The app is ad-free. Advertising SDKs, banner views, interstitials, app-open ads, and ad consent UI are removed. The browser's page options retain its ad-blocking controls. There is no built-in website-media picker in this review candidate.
 
 See Documentation/RELEASE.md for the required account configuration and release considerations.
 
 ## Development commands
+
+On a Mac with the iOS 27 SDK:
+
+```bash
+bash Scripts/build-ios.sh
+bash Scripts/build-release.sh
+```
+
+The first command writes `Build/DevTools-iOS-Simulator.zip`. The second creates `Build/DevTools-Unsigned.xcarchive.zip` and packages its app as `Build/DevTools-iOS-Device-Release-Unsigned.zip`. These are separate simulator and **unsigned device** products; the device ZIP is not an installable IPA or a TestFlight upload. Logs are written to `Build/Logs/`. Set `DEVTOOLS_ANALYZE=1` when calling the simulator script to include static analysis.
+
+GitHub Actions runs the Node/script checks, Python signing-input tests, and both Chromium smoke suites on Linux. Its macOS job executes the local file/conversion/thumbnail tests, then the simulator build with analysis and the unsigned Release archive. Pull requests, pushes to `main`, and manual dispatch trigger validation. The older analyzer workflow is manual-only to avoid a duplicate automatic simulator build. App artifacts and logs are retained for 14 days. Manual signing/export/upload uses existing credentials and runs only on explicit dispatch; see [TESTFLIGHT-SIGNING.md](Documentation/TESTFLIGHT-SIGNING.md). See [TESTING.md](Documentation/TESTING.md) for the verified runs and [RELEASE.md](Documentation/RELEASE.md) for artifact links and remaining work.
 
 Run from this folder, using Node 20.11+ and Python 3.9+:
 
@@ -139,15 +162,19 @@ Refresh the bundled tools, then test before releasing:
     npm run check
     npm run test:browser
 
-Regenerate the project after changing source/resource file membership:
+Update the existing project after changing source/resource file membership:
 
-    python3 Scripts/generate-project.py
+    python3 Scripts/patch-media-project.py
 
-This generator uses only Python’s standard library. It produces the already-included eight-target project; no XcodeGen installation is needed.
+The patcher uses Python's standard library. `npm run project` invokes it. The compatibility entry point `Scripts/generate-project.py` delegates to the same maintained patcher and preserves the current project layout.
 
 ## Structure and boundaries
 
-- App/: SwiftUI, StoreKit, advertising and package updater.
+- Root Swift files: active SwiftUI app, StoreKit, settings, and bundled-tool package updater.
+- Browser/ and BrowserResources/: in-app browser, debugger bootstrap, script runtime, and editor assets.
+- Plugins/: generic JavaScript source import, editor, library, and enablement.
+- Media/: local document library, playback, conversion, and export.
+- App/: legacy app-source copies; not the active `DevTools` app target's source.
 - Shared/: Codable models, locked atomic App Group storage, validation, package cache.
 - SafariExtension/Resources/: MV3 background, isolated content script, popup, page runtime, rule worker and bundled tools.
 - ActionExtension/: shared implementation compiled into six distinct action targets.
@@ -165,8 +192,6 @@ This is page-context debugging, not an OS-level Safari Web Inspector. It cannot 
 - Apple Safari Web Extensions: https://developer.apple.com/documentation/safariservices/safari-web-extensions
 - Native messaging: https://developer.apple.com/documentation/safariservices/messaging-between-the-app-and-javascript-in-a-safari-web-extension
 - Safari action preprocessing/finalization: https://developer.apple.com/library/archive/documentation/General/Conceptual/ExtensibilityPG/ExtensionScenarios.html
-- App Review Guidelines 2.5.2 and 2.5.18: https://developer.apple.com/app-store/review/guidelines/
-- iAd discontinuation: https://developer.apple.com/news/?id=01152016a
-- AdMob iOS: https://developers.google.com/admob/ios/quick-start
-- App-open ads: https://developers.google.com/admob/ios/app-open
+- App Review Guidelines, including 5.2.3: https://developer.apple.com/app-store/review/guidelines/
+- App Review information: https://developer.apple.com/help/app-review/before-submitting-for-review/complete-review
 - Eruda: https://github.com/liriliri/eruda

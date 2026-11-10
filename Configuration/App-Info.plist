@@ -18,17 +18,6 @@
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>DevTools media</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>devtools</string>
-			</array>
-		</dict>
-	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>DevToolsAppGroup</key>
@@ -51,9 +40,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Use your microphone on websites after you grant site permission.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Save downloaded media to your Photos library.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Modify downloaded media in your Photos library.</string>
+	<string>Save photos and videos that you import from Files to your Photos library.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

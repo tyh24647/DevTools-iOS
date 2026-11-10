@@ -2,6 +2,7 @@ import SwiftUI
 import QuickLook
 import AVKit
 import Observation
+import UniformTypeIdentifiers
 
 private enum DownloadPreviewMode: String, CaseIterable {
     case fullscreen, inline, pictureInPicture
@@ -27,19 +28,23 @@ struct DownloadsView: View {
     @State private var deleting: URL?
     @State private var renaming: URL?
     @State private var renamedName = ""
-    @State private var moving: DownloadMove?
+    @State private var moving: DownloadFile?
+    @State private var converting: DownloadFile?
+    @State private var importing = false
 
     var body: some View {
         List {
-            if relative.isEmpty {
-                Section("Transfers") {
-                    ForEach(media.transfers) { transfer in
-                        TransferRow(transfer: transfer)
-                    }
-                    if media.transfers.isEmpty {
-                        Text("Use the download button over a video or in Eruda's Media panel.").foregroundStyle(.secondary)
-                    }
-                    Button("Retry retained recordings") { media.retryRecovery() }
+            Section {
+                Button {
+                    importing = true
+                } label: {
+                    Label("Import from Files", systemImage: "square.and.arrow.down")
+                }
+                .disabled(media.isBusy)
+                Text("Choose files you already have in Files. Imported originals are kept when you create converted copies.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if let operation = media.operation {
+                    ProgressView(operation)
                 }
             }
             Section(relative.isEmpty ? "Saved media" : "Files") {
@@ -70,7 +75,7 @@ struct DownloadsView: View {
                                         Text(fileDetails(file)).font(.caption).foregroundStyle(.secondary)
                                     }
                                     Spacer(minLength: 0)
-                                    if MediaThumbnailCache.isVideo(file) {
+                                    if MediaThumbnailCache.isPlayable(file) {
                                         Image(systemName: "play.circle").foregroundStyle(.secondary)
                                     }
                                 }
@@ -85,15 +90,31 @@ struct DownloadsView: View {
                     }
                 }
                 if media.files(in: relative).isEmpty {
-                    ContentUnavailableView("No saved files", systemImage: "folder", description: Text("Downloaded files and folders appear here."))
+                    ContentUnavailableView("No files yet", systemImage: "folder", description: Text("Import files from Files to preview, organize, convert, or share them."))
                 }
             }
         }
-        .navigationTitle(relative.isEmpty ? "Downloads" : URL(fileURLWithPath: relative).lastPathComponent)
+        .navigationTitle(relative.isEmpty ? "Media files" : URL(fileURLWithPath: relative).lastPathComponent)
         .toolbar {
-            Button("New folder", systemImage: "folder.badge.plus") { creatingFolder = true }
+            Button("New folder", systemImage: "folder.badge.plus") {
+                creatingFolder = true
+            }
+            .disabled(media.isBusy)
             NavigationLink { MediaSettingsView() } label: { Image(systemName: "slider.horizontal.3") }
                 .accessibilityLabel("Media settings")
+        }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.data], allowsMultipleSelection: true) { result in
+            switch result {
+            case .success(let files):
+                Task {
+                    await media.importFiles(files, into: relative)
+                }
+            case .failure(let error):
+                let failure = error as NSError
+                if failure.domain != NSCocoaErrorDomain || failure.code != NSUserCancelledError {
+                    media.notice = error.localizedDescription
+                }
+            }
         }
         .quickLookPreview($preview)
         .fullScreenCover(isPresented: $fullscreen, onDismiss: closePlayback) {
@@ -114,6 +135,9 @@ struct DownloadsView: View {
         }
         .sheet(item: $moving) { item in
             DownloadMoveView(file: item.url)
+        }
+        .sheet(item: $converting) { item in
+            DownloadConvertView(file: item.url)
         }
         .alert("Rename", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("File name", text: $renamedName).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -163,22 +187,57 @@ struct DownloadsView: View {
     }
 
     @ViewBuilder private func fileActions(_ file: URL) -> some View {
-        Button("Rename", systemImage: "pencil") { renamedName = file.lastPathComponent; renaming = file }
-        Button("Move", systemImage: "folder") { closePlayback(); moving = DownloadMove(url: file) }
-        ShareLink(item: file) { Label("Share", systemImage: "square.and.arrow.up") }
-        if ["mp4", "mov", "m4v", "jpg", "jpeg", "png", "heic"].contains(file.pathExtension.lowercased()), !isFolder(file) {
-            Button("Save to Photos", systemImage: "photo") { Task { await media.saveToPhotos(file) } }
+        Button("Rename", systemImage: "pencil") {
+            renamedName = file.lastPathComponent
+            renaming = file
         }
-        Button("Delete", systemImage: "trash", role: .destructive) { deleting = file }
+        .disabled(media.isBusy)
+        Button("Move", systemImage: "folder") {
+            closePlayback()
+            moving = DownloadFile(url: file)
+        }
+        .disabled(media.isBusy)
+        ShareLink(item: file) {
+            Label("Share", systemImage: "square.and.arrow.up")
+        }
+        if !isFolder(file), MediaThumbnailCache.isPlayable(file) {
+            Button("Convert a copy", systemImage: "arrow.triangle.2.circlepath") {
+                closePlayback()
+                converting = DownloadFile(url: file)
+            }
+            .disabled(media.isBusy)
+        }
+        if !isFolder(file), MediaThumbnailCache.isVideo(file) || UTType(filenameExtension: file.pathExtension)?.conforms(to: .image) == true {
+            Button("Save to Photos", systemImage: "photo") {
+                Task {
+                    await media.saveToPhotos(file)
+                }
+            }
+            .disabled(media.isBusy)
+        }
+        Button("Delete", systemImage: "trash", role: .destructive) {
+            deleting = file
+        }
+        .disabled(media.isBusy)
     }
 
     private func open(_ file: URL) {
         closePlayback()
-        guard MediaThumbnailCache.isVideo(file) else { preview = file; return }
-        playback = DownloadPlayback(url: file, wantsPiP: previewMode == .pictureInPicture,
-                                    restore: { [weak media] in media?.onPreviewRestore?() })
-        fullscreen = previewMode == .fullscreen
-        playback?.player.play()
+        do {
+            try MediaLocalFiles.requireFileURL(file)
+            guard MediaThumbnailCache.isPlayable(file) else {
+                preview = file
+                return
+            }
+            let isVideo = MediaThumbnailCache.isVideo(file)
+            playback = try DownloadPlayback(url: file, wantsPiP: isVideo && previewMode == .pictureInPicture, restore: { [weak media] in
+                media?.onPreviewRestore?()
+            })
+            fullscreen = isVideo && previewMode == .fullscreen
+            playback?.player.play()
+        } catch {
+            media.notice = error.localizedDescription
+        }
     }
 
     private func closePlayback() {
@@ -196,7 +255,7 @@ private struct DownloadThumbnail: View {
             if let data, let image = UIImage(data: data) {
                 Image(uiImage: image).resizable().scaledToFill()
             } else {
-                Image(systemName: MediaThumbnailCache.isVideo(file) ? "film" : "doc.fill")
+                Image(systemName: MediaThumbnailCache.isVideo(file) ? "film" : (MediaThumbnailCache.isAudio(file) ? "waveform" : "doc.fill"))
                     .font(.title).foregroundStyle(.secondary)
             }
         }
@@ -208,9 +267,11 @@ private struct DownloadThumbnail: View {
     }
 }
 
-private struct DownloadMove: Identifiable {
+private struct DownloadFile: Identifiable {
     let url: URL
-    var id: URL { url }
+    var id: URL {
+        url
+    }
 }
 
 private struct DownloadMoveView: View {
@@ -226,7 +287,7 @@ private struct DownloadMoveView: View {
                 Section("Destination") {
                     Picker("Folder", selection: $destination) {
                         ForEach(media.destinationFolders(excluding: file), id: \.self) { folder in
-                            Text(folder.isEmpty ? "Downloads" : folder).tag(folder)
+                            Text(folder.isEmpty ? "Media files" : folder).tag(folder)
                         }
                     }
                     .pickerStyle(.inline)
@@ -247,30 +308,65 @@ private struct DownloadMoveView: View {
     }
 }
 
-private struct TransferRow: View {
+private struct DownloadConvertView: View {
+    let file: URL
     @EnvironmentObject private var media: MediaLibrary
-    @ObservedObject var transfer: MediaTransfer
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
-                if let data = transfer.thumbnail, let image = UIImage(data: data) {
-                    Image(uiImage: image).resizable().scaledToFill()
-                        .frame(width: 72, height: 54).clipShape(RoundedRectangle(cornerRadius: 8))
-                        .accessibilityHidden(true)
+        NavigationStack {
+            Form {
+                Section("Source file") {
+                    Text(file.lastPathComponent)
+                    Text("Conversion creates a separate local file and keeps the original.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-                Text(transfer.source.title).font(.headline)
+                MediaOutputSettings()
             }
-            Text(transfer.state).font(.caption)
-            Text("\(ByteCountFormatter.string(fromByteCount: transfer.bytes, countStyle: .file)) · \(Int(transfer.duration))s captured")
-                .font(.caption).monospacedDigit()
-            if let progress = transfer.progress { ProgressView(value: progress) }
-            if !transfer.captureEnded {
-                Button(transfer.live ? "Stop and finalize" : "Stop") { media.stop(transfer) }
+            .navigationTitle("Convert media")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Convert") {
+                        dismiss()
+                        Task {
+                            await media.convert(file)
+                        }
+                    }
+                    .disabled(media.isBusy)
+                }
             }
-            if let error = transfer.error { Text(error).font(.caption).foregroundStyle(.red) }
-            ForEach(transfer.outputs, id: \.self) { output in ShareLink(item: output) { Text(output.lastPathComponent) } }
         }
-        .padding(.vertical, 4)
+    }
+}
+
+private struct MediaOutputSettings: View {
+    @EnvironmentObject private var media: MediaLibrary
+
+    var body: some View {
+        Section("Converted copies") {
+            Picker("Container", selection: $media.settings.container) {
+                ForEach(MediaSettings.Container.allCases, id: \.self) { container in
+                    Text(container.rawValue.uppercased()).tag(container)
+                }
+            }
+            Picker("Video codec", selection: $media.settings.codec) {
+                Text("Keep original (fast)").tag(MediaSettings.Codec.copy)
+                Text("H.264").tag(MediaSettings.Codec.h264)
+                Text("HEVC").tag(MediaSettings.Codec.hevc)
+            }
+            Picker("Folder", selection: $media.settings.defaultFolder) {
+                ForEach(media.destinationFolders(), id: \.self) { folder in
+                    Text(folder.isEmpty ? "Media files" : folder).tag(folder)
+                }
+            }
+            Text("Conversion uses formats supported by this device. HEVC encoding can take longer and needs additional free storage. The original file is always kept.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -288,127 +384,17 @@ struct MediaSettingsView: View {
                 Text("Inline previews make room above the selected file. Picture in Picture opens a floating player when supported; otherwise the inline player remains available.")
                     .font(.caption)
             }
-            Section("Output") {
-                Picker("Container", selection: $media.settings.container) {
-                    ForEach(MediaSettings.Container.allCases, id: \.self) { Text($0.rawValue.uppercased()).tag($0) }
-                }
-                Picker("Video codec", selection: $media.settings.codec) {
-                    Text("Keep original (fast)").tag(MediaSettings.Codec.copy)
-                    Text("H.264").tag(MediaSettings.Codec.h264)
-                    Text("HEVC").tag(MediaSettings.Codec.hevc)
-                }
-                Text("HEVC is a codec inside MP4 or MOV. Encoding can take longer and needs additional free storage. Unsupported track formats retain the capture for recovery.")
-                    .font(.caption)
-            }
-            Section("Recording") {
-                Stepper("File limit: \(media.settings.partLimitMB) MiB", value: $media.settings.partLimitMB, in: 128...8192, step: 128)
-                Toggle("Split live HLS and continue", isOn: $media.settings.splitAndContinue)
-                Toggle("Stop HLS when source leaves", isOn: $media.settings.stopOnSourceLeave)
-                Toggle("Choose HLS quality before downloading", isOn: $media.settings.showQuality)
-                Text("HLS parts close after complete video/audio segments, so the limit can be exceeded by a segment. Buffer captures stop at the limit. Closing their tab always stops them. On backgrounding, live recording stops and iOS grants limited time to finalize; retained checkpoints are recovered on reopening. Recording does not continue indefinitely while suspended.")
-                    .font(.caption)
-            }
+            MediaOutputSettings()
             Section("Files") {
-                TextField("Default folder (relative path)", text: $media.settings.defaultFolder)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
                 Toggle("Show hidden files", isOn: $media.settings.showHiddenFiles)
-                Text("Create the folder in Downloads first. Export through Share to save in Files.").font(.caption)
+                Text("Import into the open folder with Import from Files. Use Share to export a file to another app or location.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Media settings")
     }
 }
 
-
-struct SaveMediaView: View {
-    let source: PageMedia
-    @EnvironmentObject private var media: MediaLibrary
-    @EnvironmentObject private var browser: BrowserController
-    @Environment(\.dismiss) private var dismiss
-    @State private var choices: [MediaChoice] = []
-    @State private var selectedID = ""
-    @State private var cookies: [HTTPCookie] = []
-    @State private var userAgent = ""
-    @State private var loading = true
-    @State private var error: String?
-    @State private var attempt = 0
-
-    private var selectedChoice: MediaChoice? {
-        choices.first { $0.id == selectedID }
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Media") {
-                    Text(source.title.isEmpty ? "Page media" : source.title)
-                    if loading {
-                        ProgressView("Loading media…")
-                    } else if let error {
-                        Text(error).foregroundStyle(.red)
-                        Button("Retry") { attempt += 1 }
-                    } else if source.isBlob {
-                        Text("Record from now while this page plays. Stop in Downloads to finalize the file. Live streams include only the audio/video tracks exposed by the player.")
-                    } else if media.settings.showQuality && choices.count > 1 {
-                        Picker("Quality", selection: $selectedID) {
-                            ForEach(choices) { choice in
-                                Text(choice.label).tag(choice.id)
-                            }
-                        }
-                    } else if let selectedChoice {
-                        Text(selectedChoice.label)
-                    }
-                }
-                Section("Save to") {
-                    Text(media.settings.defaultFolder.isEmpty ? "Downloads" : media.settings.defaultFolder)
-                    NavigationLink("Media settings") { MediaSettingsView() }
-                }
-                Section {
-                    Button(source.isBlob || selectedChoice?.live == true ? "Start recording" : "Save media") {
-                        media.start(source, choice: selectedChoice, cookies: cookies, userAgent: userAgent)
-                        dismiss()
-                    }
-                    .disabled(loading || error != nil || (!source.isBlob && selectedChoice == nil))
-                    .accessibilityIdentifier("save-media-start")
-                }
-            }
-            .navigationTitle("Save Media")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-            .task(id: attempt) { await load() }
-        }
-    }
-
-    @MainActor
-    private func load() async {
-        loading = true
-        error = nil
-        do {
-            guard let tab = browser.tabs.first(where: { $0.id == source.tabID }) else {
-                throw MediaFailure.invalid("The source tab was closed. Open the page and select the media again.")
-            }
-            userAgent = try await tab.webView.evaluateJavaScript("navigator.userAgent") as? String ?? ""
-            cookies = await tab.webView.configuration.websiteDataStore.httpCookieStore.allCookies()
-            try Task.checkCancellation()
-            choices = try await media.choices(source, cookies: cookies, userAgent: userAgent)
-            try Task.checkCancellation()
-            guard source.isBlob || !choices.isEmpty else {
-                throw MediaFailure.invalid("No supported media source was found.")
-            }
-            selectedID = choices.first?.id ?? ""
-            loading = false
-        } catch is CancellationError {
-            return
-        } catch {
-            guard !Task.isCancelled else { return }
-            self.error = error.localizedDescription
-            loading = false
-        }
-    }
-}
 
 @MainActor @Observable
 private final class DownloadPlayback: NSObject, @MainActor AVPictureInPictureControllerDelegate {
@@ -424,9 +410,10 @@ private final class DownloadPlayback: NSObject, @MainActor AVPictureInPictureCon
     private let restore: () -> Void
     private var timeout: Task<Void, Never>?
 
-    init(url: URL, wantsPiP: Bool, restore: @escaping () -> Void) {
+    init(url: URL, wantsPiP: Bool, restore: @escaping () -> Void) throws {
+        let asset = try MediaExporter.localAsset(url)
         self.url = url
-        self.player = AVPlayer(url: url)
+        self.player = AVPlayer(playerItem: AVPlayerItem(asset: asset))
         self.wantsPiP = wantsPiP
         self.restore = restore
         super.init()
@@ -439,7 +426,9 @@ private final class DownloadPlayback: NSObject, @MainActor AVPictureInPictureCon
         itemObservation = player.currentItem?.observe(\.status, options: [.new]) { [weak self] item, _ in
             let failed = item.status == .failed
             Task { @MainActor in
-                if failed { self?.message = "This video could not be played. You can still share the original file." }
+                if failed {
+                    self?.message = "This media file could not be played. You can still share the original file."
+                }
             }
         }
     }

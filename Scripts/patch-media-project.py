@@ -1,114 +1,100 @@
 #!/usr/bin/env python3
-"""Add native media sources without replacing the user's nine-target Xcode project."""
+"""Sync current browser, local-media and plug-in files without replacing targets or signing settings."""
 from pathlib import Path
+import copy
 import hashlib
 import json
-import plistlib
 import re
 
 root = Path(__file__).resolve().parents[1]
 parser = root / 'Scripts/validate-project.py'
-ns = {'__file__': str(parser)}
-exec(parser.read_text().split('assert len(targets)')[0], ns)
-project, objects = ns['project'], ns['objects']
+namespace = {'__file__': str(parser)}
+exec(parser.read_text().split('assert len(targets)')[0], namespace)
+project, objects = namespace['project'], namespace['objects']
+original = copy.deepcopy(project)
+main = objects[objects[project['rootObject']]['mainGroup']]
+managed_folders = ('Browser/', 'Media/', 'Plugins/')
 
-def oid(label):
-    return hashlib.sha1(('media-v2:' + label).encode()).hexdigest()[:24].upper()
+# Remove missing managed sources and their build entries. This script no longer
+# adds a media downloader, native bridge, remote-media package, or URL scheme.
+removed = {key for key, obj in objects.items()
+           if obj.get('isa') == 'PBXFileReference'
+           and obj.get('path', '').startswith(managed_folders)
+           and not (root / obj['path']).exists()}
+removed.update(key for key, obj in objects.items()
+               if obj.get('isa') == 'PBXBuildFile' and obj.get('fileRef') in removed)
+for key in removed:
+    objects.pop(key)
+
+
+def remove_references(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            value[key] = remove_references(item)
+    elif isinstance(value, list):
+        return [remove_references(item) for item in value
+                if not isinstance(item, str) or item not in removed]
+    return value
+
+
+remove_references(project)
+
 
 def add(label, obj):
-    key = oid(label)
+    key = hashlib.sha1(('media-v2:' + label).encode()).hexdigest()[:24].upper()
+    assert key not in objects or objects[key] == obj, 'Project identifier collision: ' + label
     objects[key] = obj
     return key
 
-main = objects[objects[project['rootObject']]['mainGroup']]
-files = sorted([*root.glob('Browser/*.swift'), *root.glob('Media/*.swift'), *root.glob('Plugins/*.swift'), root / 'Media/MediaRemux.c'])
-source_ids = []
-for file in files:
-    path = file.relative_to(root).as_posix()
-    key = add(path, {'isa': 'PBXFileReference', 'lastKnownFileType': 'sourcecode.c.c' if file.suffix == '.c' else 'sourcecode.swift', 'path': path, 'sourceTree': '<group>'})
-    if key not in main['children']:
+
+def file_reference(path, file_type):
+    key = next((key for key, obj in objects.items()
+                if obj.get('isa') == 'PBXFileReference'
+                and obj.get('path') == path), None)
+    if key is None:
+        key = add(path, {'isa': 'PBXFileReference', 'lastKnownFileType': file_type,
+                         'path': path, 'sourceTree': '<group>'})
         main['children'].append(key)
-    source_ids.append(key)
-resources = []
-for path in ['BrowserResources', 'Licenses/FFmpegBuild']:
-    key = add(path, {'isa': 'PBXFileReference', 'lastKnownFileType': 'folder', 'path': path, 'sourceTree': '<group>'})
-    if key not in main['children']:
-        main['children'].append(key)
-    resources.append(key)
-package = add('ffmpeg-package', {'isa': 'XCRemoteSwiftPackageReference', 'repositoryURL': 'https://github.com/superuser404notfound/FFmpegBuild', 'requirement': {'kind': 'revision', 'revision': 'f93e7788796eeede40bf866ed2f802b4dbfbef50'}})
-pbxproject = objects[project['rootObject']]
-if package not in pbxproject.setdefault('packageReferences', []):
-    pbxproject['packageReferences'].append(package)
-for target in ns['targets']:
+    return key
+
+
+source_refs = [file_reference(file.relative_to(root).as_posix(), 'sourcecode.swift')
+               for file in sorted([*root.glob('Browser/*.swift'),
+                                   *root.glob('Media/*.swift'),
+                                   *root.glob('Plugins/*.swift')])]
+resource_refs = [file_reference('BrowserResources', 'folder')]
+for target in namespace['targets']:
     if target.get('productType') != 'com.apple.product-type.application':
         continue
-    name = target['name']
-    # Old project exports contained package products as PBXTargetDependency objects.
-    # Xcode expects package products in packageProductDependencies/frameworks instead.
-    target['dependencies'] = [key for key in target.get('dependencies', [])
-                              if 'target' in objects[key] or 'targetProxy' in objects[key]]
-    for phaseid in target['buildPhases']:
-        phase = objects[phaseid]
-        refs = source_ids if phase['isa'] == 'PBXSourcesBuildPhase' else resources if phase['isa'] == 'PBXResourcesBuildPhase' else []
+    for phase_id in target['buildPhases']:
+        phase = objects[phase_id]
+        refs = (source_refs if phase['isa'] == 'PBXSourcesBuildPhase' else
+                resource_refs if phase['isa'] == 'PBXResourcesBuildPhase' else [])
+        existing = {objects[key].get('fileRef') for key in phase.get('files', [])}
         for ref in refs:
-            build = add(name + ':' + ref, {'isa': 'PBXBuildFile', 'fileRef': ref})
-            if build not in phase['files']:
-                phase['files'].append(build)
-    product = add(name + ':ffmpeg', {'isa': 'XCSwiftPackageProductDependency', 'package': package, 'productName': 'AetherFFmpegBuild'})
-    if product not in target.setdefault('packageProductDependencies', []):
-        target['packageProductDependencies'].append(product)
-    framework = next(objects[k] for k in target['buildPhases'] if objects[k]['isa'] == 'PBXFrameworksBuildPhase')
-    build = add(name + ':ffmpeg-link', {'isa': 'PBXBuildFile', 'productRef': product})
-    if build not in framework['files']:
-        framework['files'].append(build)
-    extension_builds = []
-    for extension_id, extension in list(objects.items()):
-        if extension.get('isa') != 'PBXNativeTarget' or extension.get('productType') != 'com.apple.product-type.app-extension':
-            continue
-        proxy = add(name + ':proxy:' + extension_id, {
-            'isa': 'PBXContainerItemProxy', 'containerPortal': project['rootObject'],
-            'proxyType': 1, 'remoteGlobalIDString': extension_id, 'remoteInfo': extension['name']})
-        dependency = add(name + ':dependency:' + extension_id, {
-            'isa': 'PBXTargetDependency', 'target': extension_id, 'targetProxy': proxy})
-        if dependency not in target.setdefault('dependencies', []):
-            target['dependencies'].append(dependency)
-        extension_builds.append(add(name + ':embed:' + extension_id, {
-            'isa': 'PBXBuildFile', 'fileRef': extension['productReference'],
-            'settings': {'ATTRIBUTES': ['RemoveHeadersOnCopy']}}))
-    embed = add(name + ':embed-extensions', {'isa': 'PBXCopyFilesBuildPhase',
-        'buildActionMask': 2147483647, 'dstPath': '', 'dstSubfolderSpec': 13,
-        'files': extension_builds, 'name': 'Embed App Extensions', 'runOnlyForDeploymentPostprocessing': 0})
-    if embed not in target['buildPhases']:
-        target['buildPhases'].append(embed)
-    for configuration in objects[target['buildConfigurationList']]['buildConfigurations']:
-        settings = objects[configuration]['buildSettings']
-        settings['SWIFT_OBJC_BRIDGING_HEADER'] = 'Configuration/DevTools-Bridging-Header.h'
-        info = root / settings['INFOPLIST_FILE']
-        plist = plistlib.loads(info.read_bytes())
-        plist.update({
-            'CFBundleURLTypes': [{'CFBundleURLName': 'DevTools media', 'CFBundleURLSchemes': ['devtools']}],
-            'NSCameraUsageDescription': 'Use your camera on websites after you grant site permission.',
-            'NSMicrophoneUsageDescription': 'Use your microphone on websites after you grant site permission.',
-            'NSPhotoLibraryAddUsageDescription': 'Save downloaded media to your Photos library.',
-            'UIFileSharingEnabled': True,
-            'LSSupportsOpeningDocumentsInPlace': True,
-        })
-        info.write_bytes(plistlib.dumps(plist, sort_keys=False))
-# Repair an absolute reference to the user's local copy of an otherwise included plist.
-for obj in objects.values():
-    if obj.get('isa') == 'PBXFileReference' and str(obj.get('path', '')).endswith('/DevTools copy-Info.plist'):
-        obj['path'] = 'DevTools copy-Info.plist'
-        obj['sourceTree'] = '<group>'
+            if ref not in existing:
+                phase['files'].append(add(target['name'] + ':' + ref,
+                                          {'isa': 'PBXBuildFile', 'fileRef': ref}))
+
 
 def atom(value):
-    return value if re.fullmatch(r"[A-Za-z0-9_.$/@+-]+", value) else json.dumps(value)
+    return value if re.fullmatch(r'[A-Za-z0-9_.$/@+-]+', value) else json.dumps(value)
+
 
 def emit(value, level=0):
     indent = '\t' * level
     if isinstance(value, dict):
-        return '{\n' + ''.join('\t' * (level + 1) + atom(str(k)) + ' = ' + emit(v, level + 1) + ';\n' for k, v in value.items()) + indent + '}'
+        return '{\n' + ''.join('\t' * (level + 1) + atom(str(key)) + ' = ' +
+                               emit(item, level + 1) + ';\n'
+                               for key, item in value.items()) + indent + '}'
     if isinstance(value, list):
-        return '(\n' + ''.join('\t' * (level + 1) + emit(v, level + 1) + ',\n' for v in value) + indent + ')'
+        return '(\n' + ''.join('\t' * (level + 1) + emit(item, level + 1) + ',\n'
+                               for item in value) + indent + ')'
     return str(value) if isinstance(value, int) else atom(value)
-(root / 'DevTools.xcodeproj/project.pbxproj').write_text('// !$*UTF8*$!\n' + emit(project) + '\n')
-print('Updated both app targets; retained', len(ns['targets']), 'targets and existing signing settings.')
+
+
+if project != original:
+    (root / 'DevTools.xcodeproj/project.pbxproj').write_text('// !$*UTF8*$!\n' + emit(project) + '\n')
+    print('Synchronized browser, local-media and plug-in sources; retained all targets and signing settings.')
+else:
+    print('Project already matches current browser, local-media and plug-in sources.')

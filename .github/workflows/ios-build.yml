@@ -1,21 +1,145 @@
-name: iOS simulator build
+name: iOS builds
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      distribution:
+        description: "Manual TestFlight operation"
+        type: choice
+        required: true
+        default: none
+        options:
+          - none
+          - readiness
+          - export
+          - upload
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.distribution || 'none' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' || inputs.distribution == 'none' || inputs.distribution == 'readiness' }}
 
 jobs:
-  build:
-    runs-on: xcode-27
+  browser-tests:
+    name: Browser debugger regression tests
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.distribution != 'readiness' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Build and package DevTools
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      - run: npm run check
+      - name: Test signing input and entitlement validation
+        run: python3 -m unittest discover -s Tests -p 'test_*.py'
+      - run: npm run test:browser
+      - run: npm run test:native-browser
+  build:
+    name: Simulator analysis and unsigned Release build
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.distribution != 'readiness' }}
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report existing runner signing readiness
+        run: bash Scripts/testflight-ios.sh readiness
+      - name: Test local file and media helpers
+        shell: bash
+        run: |
+          mkdir -p Build/Logs
+          python3 Scripts/test-downloads.py 2>&1 | tee Build/Logs/local-media-tests.log
+      - name: Build, analyze, and package simulator app
+        env:
+          DEVTOOLS_ANALYZE: "1"
         run: bash Scripts/build-ios.sh
       - name: Upload simulator app
         uses: actions/upload-artifact@v4
         with:
-          name: DevTools-iOS-Simulator
+          name: DevTools-iOS-Simulator-Debug
           path: Build/DevTools-iOS-Simulator.zip
           if-no-files-found: error
+          retention-days: 14
+      - name: Archive and package unsigned Release device app
+        run: bash Scripts/build-release.sh
+      - name: Upload unsigned Release device app
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevTools-iOS-Device-Release-Unsigned
+          path: Build/DevTools-iOS-Device-Release-Unsigned.zip
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload unsigned Xcode archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevTools-iOS-Xcode-Archive-Unsigned
+          path: Build/DevTools-Unsigned.xcarchive.zip
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Xcode logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevTools-Xcode-Logs
+          path: Build/Logs/
+          if-no-files-found: warn
+          retention-days: 14
+  signing-readiness:
+    name: Check signing material presence
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.distribution == 'readiness' }}
+    runs-on: xcode-27
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report signing material presence
+        env:
+          DEVTOOLS_TEAM_ID: GZ6B7VNBWJ
+          DEVTOOLS_CERTIFICATE_P12_BASE64: ${{ secrets.DEVTOOLS_CERTIFICATE_P12_BASE64 }}
+          DEVTOOLS_CERTIFICATE_PASSWORD: ${{ secrets.DEVTOOLS_CERTIFICATE_PASSWORD }}
+          DEVTOOLS_PROFILES_TGZ_BASE64: ${{ secrets.DEVTOOLS_PROFILES_TGZ_BASE64 }}
+          DEVTOOLS_ASC_KEY_BASE64: ${{ secrets.DEVTOOLS_ASC_KEY_BASE64 }}
+          DEVTOOLS_ASC_KEY_ID: ${{ secrets.DEVTOOLS_ASC_KEY_ID }}
+          DEVTOOLS_ASC_ISSUER_ID: ${{ secrets.DEVTOOLS_ASC_ISSUER_ID }}
+        run: bash Scripts/testflight-ios.sh readiness
+  distribute:
+    name: Sign and optionally upload to TestFlight
+    needs: [browser-tests, build]
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.distribution == 'export' || inputs.distribution == 'upload') }}
+    runs-on: xcode-27
+    timeout-minutes: 30
+    concurrency:
+      group: devtools-testflight-signing
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create and verify the signed distribution
+        env:
+          DEVTOOLS_DISTRIBUTION_ACTION: ${{ inputs.distribution }}
+          DEVTOOLS_TEAM_ID: GZ6B7VNBWJ
+          DEVTOOLS_CERTIFICATE_P12_BASE64: ${{ secrets.DEVTOOLS_CERTIFICATE_P12_BASE64 }}
+          DEVTOOLS_CERTIFICATE_PASSWORD: ${{ secrets.DEVTOOLS_CERTIFICATE_PASSWORD }}
+          DEVTOOLS_PROFILES_TGZ_BASE64: ${{ secrets.DEVTOOLS_PROFILES_TGZ_BASE64 }}
+          DEVTOOLS_ASC_KEY_BASE64: ${{ secrets.DEVTOOLS_ASC_KEY_BASE64 }}
+          DEVTOOLS_ASC_KEY_ID: ${{ secrets.DEVTOOLS_ASC_KEY_ID }}
+          DEVTOOLS_ASC_ISSUER_ID: ${{ secrets.DEVTOOLS_ASC_ISSUER_ID }}
+        run: bash Scripts/testflight-ios.sh "$DEVTOOLS_DISTRIBUTION_ACTION"
+      - name: Upload signed IPA and verification summary
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevTools-TestFlight-Export
+          path: |
+            Build/TestFlight/*.ipa
+            Build/TestFlight/*.json
+            Build/TestFlight/*.txt
+          if-no-files-found: ignore
+          retention-days: 14
