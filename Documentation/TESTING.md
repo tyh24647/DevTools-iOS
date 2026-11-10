@@ -2,7 +2,7 @@
 
 ## Current repair checkpoints
 
-Verified **2026-11-10** for code commit **`72b32b8bdc0d7c19d89183c7043c8f8379fd83e2`**: [CI run 42881231065](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065) completed successfully. These results apply to that code commit; the subsequent documentation update does not change the tested implementation.
+Verified **2026-11-10**: the app changes at **`72b32b8bdc0d7c19d89183c7043c8f8379fd83e2`** passed [CI run 42881231065](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065). The archive follow-up at **`9111052ae34de4de136e73cfb93412b3a808beaf`** passed [CI run 42884343710](https://github.com/tyh24647/DevTools-iOS/actions/runs/42884343710), including the same regression suites and a real unsigned Xcode application archive.
 
 | Check | Current result |
 | --- | --- |
@@ -10,11 +10,13 @@ Verified **2026-11-10** for code commit **`72b32b8bdc0d7c19d89183c7043c8f8379fd8
 | `npm run check` | Passed, including script/resource/project validation |
 | `python3 Scripts/test-downloads.py --check-source` | Local-media boundary checks passed |
 | Build scripts and workflow files | Bash syntax, YAML parsing, and whitespace checks passed |
+| Signing helper/verifier tests | 49 Python tests passed locally, including profile rejection, exact bundle/entitlement checks, upload command construction, and interrupted-process cleanup; no real signing credentials used |
 | Chromium browser integration | Six scenarios passed with no uncaught errors |
 | Native-browser bootstrap smoke | User scripts, debugger, source formatting, and absence of acquisition hooks passed |
 | Full macOS Swift file/conversion/thumbnail tests | 11 tests passed |
 | Debug simulator build/static analysis | `BUILD SUCCEEDED` and `ANALYZE SUCCEEDED` |
 | Unsigned Release device build | `BUILD SUCCEEDED` |
+| Unsigned Release application archive | `ARCHIVE SUCCEEDED`; `Applications/DevTools.app` and all seven extensions validated |
 | Simulator and Release ZIP inspection | All eight bundles are 1.0.0 (2); seven extensions have the expected IDs; generic script runtime matches the code commit; removed acquisition JavaScript, FFmpeg, and media URL scheme are absent |
 | Simulator UI launch, physical-device/Photos-permission checks | Not performed |
 | Signed archive, TestFlight upload, App Review approval | Pending |
@@ -31,10 +33,12 @@ Earlier HLS/MSE/WebRTC capture or FFmpeg-remux results describe features removed
 
 ## Configured CI gates
 
-The [iOS workflow](../.github/workflows/ios-build.yml) has two jobs:
+The [iOS workflow](../.github/workflows/ios-build.yml) has two automatic validation jobs:
 
-- Linux: install pinned npm dependencies and Chromium; run `npm test`, `npm run check`, `npm run test:browser`, and `npm run test:native-browser`.
-- macOS (`xcode-27`): execute `python3 Scripts/test-downloads.py`, then build/analyze the Debug simulator app and build the unsigned Release device app.
+- Linux: install pinned npm dependencies and Chromium; run `npm test`, `npm run check`, Python signing-input/entitlement tests, `npm run test:browser`, and `npm run test:native-browser`.
+- macOS (`xcode-27`): execute `python3 Scripts/test-downloads.py`, then build/analyze the Debug simulator app, archive the unsigned Release app, and package the device app from that archive.
+
+Manual `readiness`, `export`, and `upload` jobs are separate. The Python tests exercise malformed profiles/archives, all eight target assignments, entitlement and certificate consistency, missing-input boundaries, and secret-safe errors without using credentials. They do not establish that real signing or upload has succeeded. See [TESTFLIGHT-SIGNING.md](TESTFLIGHT-SIGNING.md) for the existing-credential setup and explicit distribution commands.
 
 The native-browser smoke suite exercises the browser bootstrap in Chromium, including developer tools and user scripts, and checks that the removed media bridge/capture hooks are absent. Chromium does not reproduce WKWebView, Safari extension APIs, SwiftUI, system permissions, StoreKit, or signing.
 
@@ -48,6 +52,7 @@ From the repository root, with a supported Node version and Python:
 npm ci --ignore-scripts
 npm test
 npm run check
+python3 -m unittest discover -s Tests -p 'test_*.py'
 npx playwright install chromium
 npm run test:browser
 npm run test:native-browser
@@ -69,7 +74,7 @@ DEVTOOLS_ANALYZE=1 bash Scripts/build-ios.sh
 bash Scripts/build-release.sh
 ```
 
-The two build scripts produce separate simulator/unsigned-device ZIPs and write full logs under `Build/Logs/`. Their exit status preserves failures. See [RELEASE.md](RELEASE.md) for artifact names and the separate signing/upload procedure.
+The two build scripts produce separate simulator/unsigned-device ZIPs plus an unsigned `.xcarchive` ZIP and write full logs under `Build/Logs/`. Their exit status preserves failures. See [RELEASE.md](RELEASE.md) for artifact names and the separate signing/upload procedure.
 
 ## Physical-device acceptance run
 

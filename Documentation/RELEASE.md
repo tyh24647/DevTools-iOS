@@ -8,6 +8,8 @@ Build 2 has **not yet been signed or uploaded as part of this repair**. The Appl
 
 Verified **2026-11-10**: code commit **`72b32b8bdc0d7c19d89183c7043c8f8379fd83e2`** passed [CI run 42881231065](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065): 23 Node checks, structural/script checks, six browser integration scenarios, the native-browser bootstrap smoke suite, 11 Swift helper tests, the Debug simulator build/static analysis, and unsigned Release device compilation. Both ZIPs were inspected; neither app UI launch nor physical-device/Photos-permission behavior was tested. See [TESTING.md](TESTING.md) for the evidence and limits.
 
+The archive follow-up, commit **`9111052ae34de4de136e73cfb93412b3a808beaf`**, passed [CI run 42884343710](https://github.com/tyh24647/DevTools-iOS/actions/runs/42884343710). The same regression suites passed, and Xcode reported **`ARCHIVE SUCCEEDED`**. Archive validation confirmed a normal application archive containing all eight matching bundles, the retained generic scripts, and no removed acquisition resources. The manual signing/export/upload workflow is now configured in this branch; it still needs existing signing material and an actual distribution run.
+
 ## Version and identifiers
 
 `Configuration/Project.xcconfig` sets:
@@ -35,24 +37,25 @@ If changing the bundle prefix, reconcile the product IDs in `PurchaseStore.swift
 
 ## CI validation and artifacts
 
-[The iOS workflow](../.github/workflows/ios-build.yml) runs on pull requests, pushes to `main`, and manual dispatch. A push to the repair branch alone does not trigger a second automatic build. Obsolete runs for the same workflow/ref are canceled.
+[The iOS workflow](../.github/workflows/ios-build.yml) runs validation on pull requests, pushes to `main`, and manual dispatch. A push to the repair branch alone does not trigger a second automatic build. Obsolete validation runs for the same workflow/ref are canceled. Manual signing jobs are serialized and are not canceled by a newer validation run.
 
-The Linux job installs the pinned npm dependencies and Chromium, runs the Node suite and structural/script checks, then executes both browser smoke suites. The macOS job uses the verified `xcode-27` runner and runs the actual local file/conversion/thumbnail helper tests before building:
+The Linux job installs the pinned npm dependencies and Chromium, runs the Node suite, structural/script checks, and Python signing-input tests, then executes both browser smoke suites. The macOS job uses the verified `xcode-27` runner and runs the actual local file/conversion/thumbnail helper tests before building:
 
 1. **Debug / generic iOS Simulator**, including static analysis.
-2. **Release / generic iOS**, with signing disabled.
+2. **Release / generic iOS archive**, with signing disabled; the device ZIP is packaged from the archived app.
 
-Both build commands explicitly select `DevTools.xcodeproj` and the `DevTools` scheme, with `CODE_SIGNING_ALLOWED=NO DEPLOYMENT_LOCATION=NO`. The legacy analyzer workflow remains manually runnable; automatic analysis is already included in the simulator build.
+Both build commands explicitly select `DevTools.xcodeproj` and the `DevTools` scheme, with `CODE_SIGNING_ALLOWED=NO`. The simulator build sets `DEPLOYMENT_LOCATION=NO`; the archive uses `YES`, keeps the containing app's `SKIP_INSTALL=NO`, and keeps all extensions' `SKIP_INSTALL=YES`. The legacy analyzer workflow remains manually runnable; automatic analysis is already included in the simulator build.
 
 | Artifact | Output | Purpose |
 | --- | --- | --- |
-| [DevTools-iOS-Simulator-Debug](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065/artifacts/13793188706) | `Build/DevTools-iOS-Simulator.zip` | Simulator build product |
-| [DevTools-iOS-Device-Release-Unsigned](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065/artifacts/13793224859) | `Build/DevTools-iOS-Device-Release-Unsigned.zip` | Release/device compilation product; not an installable IPA |
-| [DevTools-Xcode-Logs](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065/artifacts/13794771922) | `Build/Logs/` | Full build logs, retained even when a build fails |
+| [DevTools-iOS-Simulator-Debug](https://github.com/tyh24647/DevTools-iOS/actions/runs/42884343710/artifacts/13796600092) | `Build/DevTools-iOS-Simulator.zip` | Simulator build product |
+| [DevTools-iOS-Device-Release-Unsigned](https://github.com/tyh24647/DevTools-iOS/actions/runs/42884343710/artifacts/13795901681) | `Build/DevTools-iOS-Device-Release-Unsigned.zip` | Release/device compilation product; not an installable IPA |
+| [DevTools-iOS-Xcode-Archive-Unsigned](https://github.com/tyh24647/DevTools-iOS/actions/runs/42884343710/artifacts/13795473325) | `Build/DevTools-Unsigned.xcarchive.zip` | Unsigned application archive, including the app and all seven extensions |
+| [DevTools-Xcode-Logs](https://github.com/tyh24647/DevTools-iOS/actions/runs/42884343710/artifacts/13795677302) | `Build/Logs/` | Full build logs, retained even when a build fails |
 
 These run artifacts expire **2026-11-24** under the 14-day retention policy. Inspection confirmed all eight bundles are 1.0.0 (2), the seven extension IDs are correct, the generic script runtime matches the tested commit, and removed acquisition JavaScript, FFmpeg, and the media URL scheme are absent. The Debug simulator product uses SDK 27.1 with arm64/x86_64; the Release device product uses iPhoneOS SDK 27.1 and has no code-signature directory, provisioning profile, or debug dylibs.
 
-The GitHub workflow has no certificate installation, provisioning setup, signed export, or App Store Connect upload step. A read-only check of App Store Connect's Xcode Cloud page showed **Get started in Xcode** onboarding with no product or workflow listed. Signing and upload remain outstanding.
+Manual `readiness`, `export`, and `upload` operations are documented in [TESTFLIGHT-SIGNING.md](TESTFLIGHT-SIGNING.md). They use existing credentials, assign a distinct App Store profile to each target, and verify the actual exported signatures and App Group entitlements before upload. No signing or upload runs on pull requests or ordinary pushes. An App Store Connect check showed **Get started in Xcode** onboarding with no Xcode Cloud product or workflow listed. Signing and upload remain outstanding.
 
 On a Mac with the iOS 27 SDK, reproduce the native checks with:
 
@@ -63,6 +66,8 @@ bash Scripts/build-release.sh
 ```
 
 ## Prepare the signed submission
+
+Use the existing Mac signing setup below, or the manual GitHub Actions path in [TESTFLIGHT-SIGNING.md](TESTFLIGHT-SIGNING.md). The prepared workflow uses existing signing assets; no new certificates or API keys were created during this repair.
 
 1. Complete the physical-device acceptance run in [TESTING.md](TESTING.md), including the Safari extension and local Files/Photos workflows.
 2. Confirm the app and extensions resolve to version 1.0.0, build 2, and the intended team/App Group. If build 2 has already been uploaded by the time this procedure is used, select a new build number.

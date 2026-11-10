@@ -18,7 +18,7 @@ The app defaults to **enabled** and **run on every webpage**. Safari still requi
 
 No npm installation is needed to open or build the supplied project: the JavaScript assets are already bundled. npm is used only for development-time updates and tests.
 
-**Candidate status, verified 2026-11-10:** Build 1 was submitted to TestFlight and rejected under Guideline 5.2.3. Build 2 code commit `72b32b8bdc0d7c19d89183c7043c8f8379fd83e2` passed [CI run 42881231065](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065), including browser and Swift tests, the Debug simulator build/static analysis, and the unsigned Release device build. Both packaged products were inspected. Simulator UI launch, physical-device behavior, signing, upload, and App Review approval remain unverified or pending. See [release validation](Documentation/RELEASE.md).
+**Candidate status, verified 2026-11-10:** Build 1 was submitted to TestFlight and rejected under Guideline 5.2.3. Build 2 passed [the app-change CI run](https://github.com/tyh24647/DevTools-iOS/actions/runs/42881231065) and [the archive follow-up](https://github.com/tyh24647/DevTools-iOS/actions/runs/42884343710), including browser and Swift tests, the Debug simulator build/static analysis, and an unsigned Release application archive. The packaged products and all eight bundles were checked. A [manual signing/upload workflow](Documentation/TESTFLIGHT-SIGNING.md) is prepared on the repair branch. Simulator UI launch, physical-device behavior, actual signing/upload, and App Review approval remain unverified or pending. See [release validation](Documentation/RELEASE.md).
 
 ## Included behavior
 
@@ -143,9 +143,9 @@ bash Scripts/build-ios.sh
 bash Scripts/build-release.sh
 ```
 
-The first command writes `Build/DevTools-iOS-Simulator.zip`. The second writes `Build/DevTools-iOS-Device-Release-Unsigned.zip`. These are separate simulator and **unsigned device** products; the device ZIP is not an installable IPA or a TestFlight upload. Logs are written to `Build/Logs/`. Set `DEVTOOLS_ANALYZE=1` when calling the simulator script to include static analysis.
+The first command writes `Build/DevTools-iOS-Simulator.zip`. The second creates `Build/DevTools-Unsigned.xcarchive.zip` and packages its app as `Build/DevTools-iOS-Device-Release-Unsigned.zip`. These are separate simulator and **unsigned device** products; the device ZIP is not an installable IPA or a TestFlight upload. Logs are written to `Build/Logs/`. Set `DEVTOOLS_ANALYZE=1` when calling the simulator script to include static analysis.
 
-GitHub Actions runs the Node/script checks and both Chromium smoke suites on Linux. Its macOS job executes the local file/conversion/thumbnail tests, then the simulator build with analysis and the unsigned Release device build. Pull requests, pushes to `main`, and manual dispatch trigger the workflow. The older analyzer workflow is manual-only to avoid a duplicate automatic simulator build. App artifacts and logs are retained for 14 days. Signing and upload require a separate Xcode archive/distribution step. See [TESTING.md](Documentation/TESTING.md) for the verified run and [RELEASE.md](Documentation/RELEASE.md) for artifact links and remaining work.
+GitHub Actions runs the Node/script checks, Python signing-input tests, and both Chromium smoke suites on Linux. Its macOS job executes the local file/conversion/thumbnail tests, then the simulator build with analysis and the unsigned Release archive. Pull requests, pushes to `main`, and manual dispatch trigger validation. The older analyzer workflow is manual-only to avoid a duplicate automatic simulator build. App artifacts and logs are retained for 14 days. Manual signing/export/upload uses existing credentials and runs only on explicit dispatch; see [TESTFLIGHT-SIGNING.md](Documentation/TESTFLIGHT-SIGNING.md). See [TESTING.md](Documentation/TESTING.md) for the verified runs and [RELEASE.md](Documentation/RELEASE.md) for artifact links and remaining work.
 
 Run from this folder, using Node 20.11+ and Python 3.9+:
 

@@ -42,7 +42,7 @@ archive_app() {
     fi
     if [[ "$archive_mode" == --signed ]]; then
         identities="$(security find-identity -v -p codesigning)"
-        if [[ "$identities" == *"0 valid identities found"* ]]; then
+        if ! [[ "$identities" =~ [1-9][0-9]*[[:space:]]+valid[[:space:]]+identities[[:space:]]+found ]]; then
             echo "No valid signing identity is available. Configure this Mac's Xcode signing or install the existing signing credentials before creating a signed archive." >&2
             exit 1
         fi
